@@ -130,7 +130,7 @@ def consent(payload: ConsentRequest, request: Request, user: User = Depends(get_
 
 
 @router.post("/chat")
-async def chat(payload: ChatRequest, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+async def chat(payload: ChatRequest, user: User | None = Depends(get_optional_user), db: Session = Depends(get_db)):
     chat_response = chat_service.answer(payload.message, payload.language, payload.profile, user=user, db=db)
     if settings.sarvam_api_key and chat_response.answer:
         try:
@@ -145,7 +145,7 @@ async def chat(payload: ChatRequest, user: User = Depends(get_current_user), db:
 
 
 @router.post("/voice-chat")
-async def voice_chat(payload: VoiceChatRequest, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+async def voice_chat(payload: VoiceChatRequest, user: User | None = Depends(get_optional_user), db: Session = Depends(get_db)):
     transcript = payload.transcript or ""
     mode = "sarvam_ai"
 
