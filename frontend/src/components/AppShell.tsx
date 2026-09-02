@@ -92,7 +92,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-screen bg-stone-50 pb-20 lg:pb-0 relative">
       <SpotlightOverlay />
-      {user?.role !== "admin" && <FloatingChatWidget />}
 
       <header className="sticky top-0 z-20 border-b bg-white/95 backdrop-blur">
         <div className="mx-auto flex max-w-7xl items-center justify-between gap-3 px-4 py-3">

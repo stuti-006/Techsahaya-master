@@ -4,6 +4,7 @@ import { ProtectedRoute, RoleProtectedRoute } from "./components/ProtectedRoute"
 import { PublicLayout } from "./components/PublicLayout";
 import { ScrollToTop } from "./components/ScrollToTop";
 import { ScrollToTopButton } from "./components/ScrollToTopButton";
+import { FloatingChatWidget } from "./components/FloatingChatWidget";
 import { AboutPage } from "./pages/AboutPage";
 import { AccessRestrictedPage } from "./pages/AccessRestrictedPage";
 import { AdminAuditPage } from "./pages/AdminAuditPage";
@@ -93,6 +94,7 @@ export default function App() {
       <Route path="*" element={<NotFoundPage />} />
     </Routes>
     <ScrollToTopButton />
+    <FloatingChatWidget />
   </>
   );
 }

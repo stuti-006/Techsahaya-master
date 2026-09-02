@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from "react";
+import { motion, AnimatePresence } from "motion/react";
 import {
   Bot,
   Compass,
@@ -14,6 +15,9 @@ import {
   Volume2,
   VolumeX,
   X,
+  ArrowRight,
+  HelpCircle,
+  MessageSquareHeart,
 } from "lucide-react";
 import { useAppContext } from "../context/AppContext";
 import { useTour } from "../context/TourContext";
@@ -46,6 +50,80 @@ interface Message {
   audioBase64?: string | null;
   audioMime?: string;
 }
+
+const STUCK_HELP_LOCALIZATION: Record<
+  string,
+  {
+    title: string;
+    subtitle: string;
+    chips: Array<{ label: string; query: string }>;
+    cta: string;
+  }
+> = {
+  en: {
+    title: "🍉 Stuck or have a question?",
+    subtitle: "Need help finding government schemes or checking eligibility? Ask Sahaya!",
+    chips: [
+      { label: "🌾 Farmer Schemes", query: "What schemes are available for farmers in Karnataka?" },
+      { label: "🎓 Scholarships", query: "Tell me about post-matric scholarships for students" },
+      { label: "📋 Check Eligibility", query: "How do I check my eligibility for government benefits?" },
+      { label: "📄 Document Proofs", query: "What documents do I need to prepare for welfare applications?" },
+    ],
+    cta: "Ask Sahaya →",
+  },
+  hi: {
+    title: "🍉 क्या आपको सहायता चाहिए?",
+    subtitle: "सरकारी योजना खोजने या पात्रता जांचने में अटक गए हैं? मुझसे पूछें!",
+    chips: [
+      { label: "🌾 किसान योजनाएं", query: "किसानों के लिए कौन सी सरकारी योजनाएं उपलब्ध हैं?" },
+      { label: "🎓 छात्रवृत्ति", query: "विद्यार्थियों के लिए छात्रवृत्ति योजनाओं के बारे में बताएं" },
+      { label: "📋 पात्रता जांचें", query: "सरकारी लाभों के लिए पात्रता कैसे जांचें?" },
+      { label: "📄 जरूरी दस्तावेज", query: "आवेदन के लिए किन दस्तावेजों की आवश्यकता है?" },
+    ],
+    cta: "सहायता से पूछें →",
+  },
+  kn: {
+    title: "🍉 ಸಹಾಯ ಬೇಕೇ?",
+    subtitle: "ಯೋಜನೆ ಹುಡುಕಲು ಅಥವಾ ಅರ್ಹತೆ ಪರಿಶೀಲಿಸಲು ಸಿಲುಕಿಕೊಂಡಿದ್ದೀರಾ? ನನ್ನನ್ನು ಕೇಳಿ!",
+    chips: [
+      { label: "🌾 ರೈತ ಯೋಜನೆಗಳು", query: "ಕರ್ನಾಟಕದ ರೈತರಿಗೆ ಯಾವ ಯೋಜನೆಗಳು ಲಭ್ಯವಿವೆ?" },
+      { label: "🎓 ವಿದ್ಯಾರ್ಥಿವೇತನ", query: "ವಿದ್ಯಾರ್ಥಿಗಳಿಗೆ ಪೋಸ್ಟ್-ಮೆಟ್ರಿಕ್ ವಿದ್ಯಾರ್ಥಿವೇತನಗಳ ಬಗ್ಗೆ ತಿಳಿಸಿ" },
+      { label: "📋 ಅರ್ಹತೆ ಪರಿಶೀಲಿಸಿ", query: "ನನ್ನ ಅರ್ಹತೆಯನ್ನು ಹೇಗೆ ಪರಿಶೀಲಿಸುವುದು?" },
+      { label: "📄 ಅಗತ್ಯ ದಾಖಲೆಗಳು", query: "ಅರ್ಜಿ ಸಲ್ಲಿಸಲು ಯಾವ ದಾಖಲೆಗಳು ಬೇಕು?" },
+    ],
+    cta: "ಸಹಾಯರನ್ನು ಕೇಳಿ →",
+  },
+  mr: {
+    title: "🍉 मदतीची गरज आहे का?",
+    subtitle: "सरकारी योजना शोधताना किंवा पात्रता तपासताना अडकला आहात का? मला विचारा!",
+    chips: [
+      { label: "🌾 शेतकरी योजना", query: "शेतकऱ्यांसाठी कोणत्या शासकीय योजना उपलब्ध आहेत?" },
+      { label: "🎓 शिष्यवृत्ती", query: "विद्यार्थ्यांसाठी शिष्यवृत्ती योजनांबद्दल माहिती द्या" },
+      { label: "📋 पात्रता तपासा", query: "सरकारी लाभांसाठी माझी पात्रता कशी तपासावी?" },
+    ],
+    cta: "सहायाला विचारा →",
+  },
+  te: {
+    title: "🍉 సహాయం కావాలా?",
+    subtitle: "పథకాలు కనుగొనడంలో లేదా అర్హతను తనిఖీ చేయడంలో ఇబ్బంది పడుతున్నారా? నన్ను అడగండి!",
+    chips: [
+      { label: "🌾 రైతు పథకాలు", query: "రైతులకు ఏ ప్రభుత్వ పథకాలు అందుబాటులో ఉన్నాయి?" },
+      { label: "🎓 స్కాలర్‌షిప్‌లు", query: "విద్యార్థులకు స్కాలర్‌షిప్‌ల గురించి చెప్పండి" },
+      { label: "📋 అర్హత తనిಖీ", query: "ప్రభుత్వ పథకాలకు నా అర్హతను ఎలా తనిఖీ చేయాలి?" },
+    ],
+    cta: "సహాయను అడగండి →",
+  },
+  ta: {
+    title: "🍉 உதவி தேவையா?",
+    subtitle: "திட்டங்களைக் கண்டறிவதில் சிக்கல் உள்ளதா? என்னிடம் கேளுங்கள்!",
+    chips: [
+      { label: "🌾 உழவர் திட்டங்கள்", query: "விவசாயிகளுக்கு என்ன நலத்திட்டங்கள் உள்ளன?" },
+      { label: "🎓 கல்வி உதவித்தொகை", query: "மாணவர்களுக்கான கல்வி உதவித்தொகை பற்றி கூறவும்" },
+      { label: "📋 தகுதி சரிபார்ப்பு", query: "அரசு திட்டங்களுக்கான எனது தகுதியை எவ்வாறு சரிபார்ப்பது?" },
+    ],
+    cta: "சஹாயாவிடம் கேளுங்கள் →",
+  },
+};
 
 function FormattedMessageText({ text, isUser }: { text: string; isUser: boolean }) {
   if (isUser) {
@@ -98,54 +176,95 @@ function FormattedMessageText({ text, isUser }: { text: string; isUser: boolean 
 
       if (part.startsWith("*") && part.endsWith("*") && part.length >= 2) {
         return (
-          <em key={i} className="italic text-slate-500">
+          <em key={i} className="italic text-slate-800">
             {part.slice(1, -1)}
           </em>
         );
       }
 
-      return <span key={i}>{part}</span>;
+      return part;
     });
   };
 
-  return (
-    <div className="space-y-1 text-sm leading-relaxed text-slate-800">
-      {lines.map((line, idx) => {
-        const trimmed = line.trim();
-        if (!trimmed) {
-          return <div key={idx} className="h-0.5" />;
-        }
+  const elements: React.ReactNode[] = [];
+  let currentList: React.ReactNode[] = [];
 
-        if (trimmed.startsWith("**") && trimmed.endsWith("**") && !trimmed.includes(":")) {
-          return (
-            <div key={idx} className="font-bold text-sm text-emerald-900 pb-1 pt-0.5 border-b border-stone-100">
-              {trimmed.replace(/\*\*/g, "")}
-            </div>
-          );
-        }
+  const flushList = () => {
+    if (currentList.length > 0) {
+      elements.push(
+        <ul key={`list-${elements.length}`} className="my-1.5 list-disc pl-5 space-y-1 text-sm text-slate-800">
+          {currentList}
+        </ul>
+      );
+      currentList = [];
+    }
+  };
 
-        if (trimmed.startsWith("•") || trimmed.startsWith("-")) {
-          const content = trimmed.replace(/^[•\-]\s*/, "");
-          return (
-            <div key={idx} className="flex items-start gap-2 pl-0.5">
-              <span className="text-emerald-600 font-bold select-none text-xs mt-0.5">•</span>
-              <div className="flex-1">{renderInlineStyles(content)}</div>
-            </div>
-          );
-        }
+  lines.forEach((line, index) => {
+    const trimmed = line.trim();
 
-        return <p key={idx}>{renderInlineStyles(trimmed)}</p>;
-      })}
-    </div>
-  );
+    if (trimmed.startsWith("• ") || trimmed.startsWith("- ") || trimmed.startsWith("* ")) {
+      const bulletContent = trimmed.substring(2);
+      currentList.push(
+        <li key={index} className="leading-relaxed">
+          {renderInlineStyles(bulletContent)}
+        </li>
+      );
+      return;
+    }
+
+    const numberedMatch = trimmed.match(/^(\d+)\.\s+(.*)/);
+    if (numberedMatch) {
+      currentList.push(
+        <li key={index} className="leading-relaxed list-decimal">
+          {renderInlineStyles(numberedMatch[2])}
+        </li>
+      );
+      return;
+    }
+
+    flushList();
+
+    if (!trimmed) {
+      elements.push(<div key={index} className="h-1.5" />);
+      return;
+    }
+
+    if (trimmed.startsWith("### ")) {
+      elements.push(
+        <h4 key={index} className="mt-2 text-sm font-bold text-slate-900">
+          {renderInlineStyles(trimmed.substring(4))}
+        </h4>
+      );
+    } else if (trimmed.startsWith("## ")) {
+      elements.push(
+        <h3 key={index} className="mt-2.5 text-base font-bold text-slate-900">
+          {renderInlineStyles(trimmed.substring(3))}
+        </h3>
+      );
+    } else {
+      elements.push(
+        <p key={index} className="text-sm leading-relaxed text-slate-800 my-0.5">
+          {renderInlineStyles(line)}
+        </p>
+      );
+    }
+  });
+
+  flushList();
+
+  return <div className="space-y-0.5">{elements}</div>;
 }
 
 export function FloatingChatWidget() {
-
   const { language, setLanguage, user, profile } = useAppContext();
   const { startTour } = useTour();
 
   const [isOpen, setIsOpen] = useState(false);
+  const [showStuckPrompt, setShowStuckPrompt] = useState(false);
+  const [snoozed, setSnoozed] = useState(false);
+  const idleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   const [messages, setMessages] = useState<Message[]>([
     {
       id: "welcome",
@@ -163,6 +282,38 @@ export function FloatingChatWidget() {
   const audioChunksRef = useRef<Blob[]>([]);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
 
+  // Still cursor / idle detection for proactive assistance
+  useEffect(() => {
+    if (isOpen || snoozed || user?.role === "admin") {
+      setShowStuckPrompt(false);
+      if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
+      return;
+    }
+
+    const resetTimer = () => {
+      if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
+      // Trigger when cursor or user interaction is paused for 5 seconds
+      idleTimerRef.current = setTimeout(() => {
+        setShowStuckPrompt(true);
+      }, 5000);
+    };
+
+    window.addEventListener("mousemove", resetTimer);
+    window.addEventListener("keydown", resetTimer);
+    window.addEventListener("scroll", resetTimer, { passive: true });
+    window.addEventListener("touchstart", resetTimer, { passive: true });
+
+    resetTimer();
+
+    return () => {
+      if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
+      window.removeEventListener("mousemove", resetTimer);
+      window.removeEventListener("keydown", resetTimer);
+      window.removeEventListener("scroll", resetTimer);
+      window.removeEventListener("touchstart", resetTimer);
+    };
+  }, [isOpen, snoozed, user?.role]);
+
   useEffect(() => {
     return () => {
       stopAllPlayback();
@@ -178,6 +329,10 @@ export function FloatingChatWidget() {
   const handleSend = async (textToSend?: string) => {
     const query = (textToSend || inputText).trim();
     if (!query || loading) return;
+
+    // Ensure chat opens if triggered from stuck popup
+    setIsOpen(true);
+    setShowStuckPrompt(false);
 
     const userMessage: Message = {
       id: `user-${Date.now()}`,
@@ -301,18 +456,19 @@ export function FloatingChatWidget() {
         verificationStatus: asstData?.verification_status,
         tourId: asstData?.tour_id,
         suggestedAction: asstData?.suggested_action,
-        audioBase64: data.audio_base64,
-        audioMime: data.audio_mime || "audio/wav",
+        audioBase64: asstData?.audio_base64,
+        audioMime: asstData?.audio_mime || "audio/wav",
       };
 
       setMessages((prev) => [...prev, userMsg, asstMsg]);
-      playAudio(asstMsg.id, data.audio_base64, data.audio_mime || "audio/wav", asstData?.answer);
-    } catch (err: any) {
-      console.error("Voice chat error", err);
+
+      playAudio(asstMsg.id, asstData?.audio_base64, asstData?.audio_mime || "audio/wav", asstData?.answer);
+    } catch (err) {
+      console.error("Voice chat upload failed", err);
       const errorMsg: Message = {
-        id: `err-voice-${Date.now()}`,
+        id: `err-${Date.now()}`,
         sender: "assistant",
-        text: "Voice processing failed. Please type your query in the chat box below.",
+        text: "Sorry, I could not process your voice message. Please try speaking clearly or type your query.",
         timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
       };
       setMessages((prev) => [...prev, errorMsg]);
@@ -354,135 +510,235 @@ export function FloatingChatWidget() {
   const triggerTour = (tourId: string) => {
     const success = startTour(tourId);
     if (success) {
-      setIsOpen(false); // Minimize chat to reveal spotlight
+      setIsOpen(false);
     }
   };
 
+  if (user?.role === "admin") return null;
+
+  const currentHelp = STUCK_HELP_LOCALIZATION[language] || STUCK_HELP_LOCALIZATION.en;
+
   return (
     <>
-      {/* Floating Action Button */}
+      {/* 🍉 Watermelon UI Proactive Still-Cursor Speech Bubble Popup */}
+      <AnimatePresence>
+        {showStuckPrompt && !isOpen && (
+          <motion.div
+            initial={{ opacity: 0, y: 16, scale: 0.9 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 12, scale: 0.92 }}
+            transition={{ type: "spring", stiffness: 420, damping: 26 }}
+            className="fixed bottom-24 right-4 sm:right-6 z-[65] w-[calc(100vw-2rem)] sm:w-88 max-w-sm"
+          >
+            <div className="relative rounded-3xl border-2 border-[#164E35] bg-[#FAFDFB] p-4 shadow-2xl shadow-[#E8254E]/20 overflow-hidden">
+              {/* Top Watermelon Rind Banner Strip */}
+              <div className="absolute top-0 left-0 right-0 h-2 bg-gradient-to-r from-[#164E35] via-[#205C3B] to-[#10B981]" />
+
+              {/* Header with juicy Watermelon Badge & Dismiss */}
+              <div className="mt-1 flex items-start justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-[#FF4365] to-[#E8254E] text-white shadow-sm text-base">
+                    🍉
+                  </span>
+                  <div>
+                    <h4 className="text-xs font-bold uppercase tracking-wider text-[#164E35]">
+                      {currentHelp.title}
+                    </h4>
+                    <p className="text-xs text-slate-600 leading-snug mt-0.5">
+                      {currentHelp.subtitle}
+                    </p>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowStuckPrompt(false);
+                    setSnoozed(true);
+                    setTimeout(() => setSnoozed(false), 90000); // Snooze for 90s
+                  }}
+                  className="rounded-full p-1 text-slate-400 hover:bg-rose-50 hover:text-rose-600 transition"
+                  aria-label="Dismiss helper"
+                >
+                  <X size={16} />
+                </button>
+              </div>
+
+              {/* Quick Suggestion Chips */}
+              <div className="mt-3 flex flex-wrap gap-1.5">
+                {currentHelp.chips.slice(0, 3).map((chip, idx) => (
+                  <button
+                    key={idx}
+                    type="button"
+                    onClick={() => handleSend(chip.query)}
+                    className="rounded-full border border-[#10B981]/40 bg-white px-2.5 py-1 text-[11px] font-medium text-slate-700 hover:border-[#FF4365] hover:bg-rose-50 hover:text-[#C9183C] transition cursor-pointer shadow-xs"
+                  >
+                    {chip.label}
+                  </button>
+                ))}
+              </div>
+
+              {/* CTA launch bar */}
+              <div className="mt-3.5 flex items-center justify-between pt-2 border-t border-emerald-100">
+                <span className="text-[10px] font-semibold text-emerald-800 flex items-center gap-1">
+                  <span className="h-2 w-2 rounded-full bg-emerald-500 animate-ping" />
+                  Instant AI Verified Response
+                </span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsOpen(true);
+                    setShowStuckPrompt(false);
+                  }}
+                  className="inline-flex items-center gap-1.5 rounded-full bg-gradient-to-r from-[#FF4365] to-[#E8254E] px-3.5 py-1.5 text-xs font-bold text-white shadow-md hover:from-[#E8254E] hover:to-[#C9183C] transition cursor-pointer"
+                >
+                  {currentHelp.cta}
+                </button>
+              </div>
+
+              {/* Speech Bubble Pointer Tail */}
+              <div className="absolute -bottom-2 right-8 h-4 w-4 rotate-45 border-b-2 border-r-2 border-[#164E35] bg-[#FAFDFB]" />
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* 🍉 Floating Launcher Action Button (Watermelon UI theme) */}
       {!isOpen && (
-        <div className="fixed bottom-6 right-6 z-[60]">
+        <div className="fixed bottom-6 right-4 sm:right-6 z-[60]">
           <button
             type="button"
-            onClick={() => setIsOpen(true)}
+            onClick={() => {
+              setIsOpen(true);
+              setShowStuckPrompt(false);
+            }}
             data-tour="floating-chat-btn"
-            className="group relative flex h-14 w-14 items-center justify-center rounded-2xl bg-emerald-600 text-white shadow-xl hover:bg-emerald-700 hover:scale-105 active:scale-95 transition-all duration-200"
-            aria-label="Open Ask Sahaya Chatbot"
+            className="group relative flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-[#FF4365] via-[#E8254E] to-[#C9183C] text-white shadow-2xl shadow-[#E8254E]/40 border-2 border-[#164E35] hover:scale-105 active:scale-95 transition-all duration-200 cursor-pointer"
+            aria-label="Open welfare assistant"
           >
-            <Bot size={28} className="transition-transform group-hover:rotate-6" />
+            {/* Ambient Watermelon Glow Halo */}
+            <span className="pointer-events-none absolute -inset-1 rounded-2xl opacity-75 blur-sm bg-gradient-to-r from-[#FF4365] to-[#10B981] animate-pulse" />
+
+            <div className="relative z-10 flex items-center justify-center">
+              <Bot size={26} className="text-white drop-shadow-sm transition group-hover:rotate-6" />
+            </div>
+
+            {/* Online Live Indicator */}
             <span className="absolute -top-1 -right-1 flex h-4 w-4">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
-              <span className="relative inline-flex rounded-full h-4 w-4 bg-emerald-500 border-2 border-white" />
+              <span className="absolute inline-flex h-full w-full rounded-full bg-[#10B981] opacity-75 animate-ping" />
+              <span className="relative inline-flex h-4 w-4 rounded-full bg-[#10B981] border-2 border-white shadow-xs" />
             </span>
           </button>
         </div>
       )}
 
-      {/* Floating Chat Drawer Panel */}
+      {/* 🍉 Responsive Chat Window Modal */}
       {isOpen && (
         <div
-          className="fixed bottom-5 right-5 z-[60] flex h-[600px] max-h-[88vh] w-[420px] max-w-[94vw] flex-col rounded-3xl border border-emerald-100 bg-white shadow-2xl overflow-hidden font-sans animate-in slide-in-from-bottom-6 duration-200"
-          role="region"
-          aria-label="Ask Sahaya Chat Assistant"
+          role="dialog"
+          aria-label="Tech Sahaya Assistant"
+          className="fixed bottom-4 right-2 sm:bottom-6 sm:right-6 z-[70] flex flex-col h-[90vh] sm:h-[600px] w-[calc(100vw-1rem)] sm:w-[420px] max-w-full rounded-3xl border-2 border-[#164E35] bg-white shadow-2xl shadow-slate-900/25 overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-200"
         >
-          {/* Header */}
-          <div className="flex items-center justify-between bg-emerald-700 px-4 py-3 text-white">
-            <div className="flex items-center gap-3">
-              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/15 text-white">
+          {/* Header with Watermelon Theme */}
+          <div className="flex items-center justify-between border-b border-[#164E35]/20 bg-gradient-to-r from-[#164E35] via-[#1F5F3A] to-[#164E35] p-3.5 text-white">
+            <div className="flex items-center gap-2.5">
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-[#FF4365] to-[#E8254E] text-white shadow-sm">
                 <Bot size={20} />
               </div>
               <div>
-                <div className="text-sm font-bold leading-tight">{t(language, "askSahaya")}</div>
-                <div className="text-[11px] text-emerald-200 flex items-center gap-1.5">
-                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-300 animate-pulse" />
-                  {t(language, "voiceAndRagAssisted")}
+                <div className="flex items-center gap-1.5 font-bold text-sm leading-tight text-white">
+                  <span>Tech Sahaya</span>
+                  <span className="rounded-full bg-[#FF4365] px-1.5 py-0.2 text-[9px] font-bold text-white tracking-wider">
+                    AI
+                  </span>
+                </div>
+                <div className="flex items-center gap-1 text-[10px] text-emerald-200">
+                  <span className="h-1.5 w-1.5 rounded-full bg-[#10B981] animate-pulse" />
+                  <span>DPDP Verified • {language.toUpperCase()}</span>
                 </div>
               </div>
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1.5">
               <select
-                aria-label="Chat Language"
                 value={language}
                 onChange={(e) => setLanguage(e.target.value)}
-                className="rounded-lg border border-white/20 bg-emerald-800/80 px-2 py-1 text-xs text-white focus:outline-none"
+                aria-label="Select chat language"
+                className="h-8 rounded-lg border border-emerald-700 bg-emerald-900/60 px-2 text-xs font-semibold text-white focus:outline-none"
               >
                 {SUPPORTED_LANGUAGES.map((lang) => (
-                  <option key={lang.code} value={lang.code} className="bg-emerald-900 text-white">
-                    {lang.nativeLabel}
+                  <option key={lang.code} value={lang.code} className="bg-slate-900 text-white">
+                    {lang.nativeLabel} ({lang.label})
                   </option>
                 ))}
               </select>
+
               <button
                 type="button"
                 onClick={() => setIsOpen(false)}
-                className="rounded-lg p-1.5 text-white/80 hover:bg-white/10 hover:text-white transition"
-                aria-label="Minimize Chat"
+                className="flex h-8 w-8 items-center justify-center rounded-lg text-emerald-200 hover:bg-emerald-800 hover:text-white transition"
+                aria-label="Minimize chat"
               >
                 <Minimize2 size={16} />
               </button>
             </div>
           </div>
 
-          {/* Message History */}
-          <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-stone-50/70">
+          {/* Messages Area */}
+          <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-[#FAFDFB]">
             {messages.map((msg) => (
               <div
                 key={msg.id}
                 className={`flex flex-col ${msg.sender === "user" ? "items-end" : "items-start"}`}
               >
                 <div
-                  className={`max-w-[88%] rounded-2xl p-3.5 text-sm leading-relaxed ${
+                  className={`max-w-[85%] rounded-2xl p-3.5 shadow-xs ${
                     msg.sender === "user"
-                      ? "bg-emerald-600 text-white rounded-br-none shadow-sm"
-                      : "bg-white text-slate-800 border border-stone-200/80 rounded-bl-none shadow-sm"
+                      ? "bg-gradient-to-br from-[#164E35] to-[#1F5F3A] text-white rounded-br-xs"
+                      : "bg-white text-slate-800 border border-slate-200/80 rounded-bl-xs"
                   }`}
                 >
                   <FormattedMessageText text={msg.text} isUser={msg.sender === "user"} />
 
-                  {/* Audio Player Button for Assistant Voice */}
-                  {msg.sender === "assistant" && msg.text && (
-                    <div className="mt-2.5 pt-2 border-t border-stone-100 flex items-center gap-2">
+                  {/* Audio Readout Control */}
+                  {msg.sender === "assistant" && (
+                    <div className="mt-2.5 pt-2 border-t border-slate-100 flex items-center justify-between">
                       <button
                         type="button"
                         onClick={() => playAudio(msg.id, msg.audioBase64, msg.audioMime, msg.text)}
-                        className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700 hover:bg-emerald-100 transition"
+                        className={`inline-flex items-center gap-1 rounded-lg px-2.5 py-1 text-xs font-semibold transition cursor-pointer ${
+                          playingAudioId === msg.id
+                            ? "bg-rose-100 text-rose-800 border border-rose-300 animate-pulse"
+                            : "bg-emerald-50 text-emerald-800 border border-emerald-200 hover:bg-emerald-100"
+                        }`}
                       >
                         {playingAudioId === msg.id ? (
                           <>
-                            <Square size={13} className="fill-emerald-700" /> {t(language, "stopAudio")}
+                            <Square size={12} fill="currentColor" /> {t(language, "stopAudio")}
                           </>
                         ) : (
                           <>
-                            <Volume2 size={14} /> {t(language, "playVoice")}
+                            <Volume2 size={12} /> {t(language, "playVoice")}
                           </>
                         )}
                       </button>
-                    </div>
-                  )}
 
-                  {/* Evidence & Confidence Metadata Badges */}
-                  {msg.evidence && msg.evidence.length > 0 && (
-                    <div className="mt-2.5 pt-2 border-t border-stone-100 text-[11px] text-slate-500">
-                      <div className="flex items-center gap-1.5 font-semibold text-emerald-700">
-                        <FileCheck2 size={13} />
-                        {t(language, "verifiedSourceEvidence")} ({msg.confidence?.toUpperCase()} {t(language, "confidenceLevel")})
-                      </div>
-                      <div className="mt-1 text-slate-600 line-clamp-2 italic">
-                        "{msg.evidence[0].evidence}"
-                      </div>
+                      {msg.verificationStatus && (
+                        <span className="text-[10px] text-emerald-700 font-semibold flex items-center gap-1">
+                          <FileCheck2 size={12} /> Verified
+                        </span>
+                      )}
                     </div>
                   )}
                 </div>
 
-                {/* Suggested Action / Spotlight Guided Tour Chip */}
+                {/* Tour Suggested Action */}
                 {msg.suggestedAction && msg.suggestedAction.tour_id && (
                   <div className="mt-2 flex items-center gap-2">
                     <button
                       type="button"
                       onClick={() => triggerTour(msg.suggestedAction!.tour_id)}
-                      className="inline-flex items-center gap-1.5 rounded-xl border border-emerald-300 bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-800 shadow-sm hover:bg-emerald-100 hover:border-emerald-400 transition animate-bounce"
+                      className="inline-flex items-center gap-1.5 rounded-xl border border-emerald-300 bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-800 shadow-sm hover:bg-emerald-100 transition animate-bounce cursor-pointer"
                     >
                       <Compass size={14} className="text-emerald-600" />
                       {msg.suggestedAction.title}
@@ -496,7 +752,7 @@ export function FloatingChatWidget() {
 
             {loading && (
               <div className="flex items-center gap-2 text-xs text-slate-500 bg-white p-3 rounded-2xl border w-fit">
-                <span className="flex h-2 w-2 rounded-full bg-emerald-500 animate-ping" />
+                <span className="flex h-2 w-2 rounded-full bg-[#FF4365] animate-ping" />
                 {t(language, "retrievingEvidence")}
               </div>
             )}
@@ -505,25 +761,25 @@ export function FloatingChatWidget() {
           </div>
 
           {/* Quick Prompts Suggestions */}
-          <div className="px-3 py-1.5 bg-stone-100/80 border-t flex gap-1.5 overflow-x-auto text-[11px] no-scrollbar">
+          <div className="px-3 py-2 bg-stone-100/80 border-t border-stone-200 flex gap-1.5 overflow-x-auto text-[11px] no-scrollbar">
             <button
               type="button"
               onClick={() => handleSend(t(language, "farmerSchemesQuery"))}
-              className="shrink-0 rounded-lg bg-white px-2.5 py-1 text-slate-600 hover:bg-emerald-50 hover:text-emerald-700 border transition"
+              className="shrink-0 rounded-lg bg-white px-2.5 py-1 text-slate-600 hover:bg-rose-50 hover:text-[#C9183C] hover:border-[#FF4365] border border-slate-200 transition cursor-pointer"
             >
               {t(language, "farmerSchemesChip")}
             </button>
             <button
               type="button"
               onClick={() => handleSend(t(language, "uploadDocsQuery"))}
-              className="shrink-0 rounded-lg bg-white px-2.5 py-1 text-slate-600 hover:bg-emerald-50 hover:text-emerald-700 border transition"
+              className="shrink-0 rounded-lg bg-white px-2.5 py-1 text-slate-600 hover:bg-rose-50 hover:text-[#C9183C] hover:border-[#FF4365] border border-slate-200 transition cursor-pointer"
             >
               {t(language, "uploadDocsChip")}
             </button>
             <button
               type="button"
               onClick={() => handleSend(t(language, "missedBenefitsQuery"))}
-              className="shrink-0 rounded-lg bg-white px-2.5 py-1 text-slate-600 hover:bg-emerald-50 hover:text-emerald-700 border transition"
+              className="shrink-0 rounded-lg bg-white px-2.5 py-1 text-slate-600 hover:bg-rose-50 hover:text-[#C9183C] hover:border-[#FF4365] border border-slate-200 transition cursor-pointer"
             >
               {t(language, "missedBenefitsChip")}
             </button>
@@ -540,7 +796,7 @@ export function FloatingChatWidget() {
                 <button
                   type="button"
                   onClick={stopVoiceRecording}
-                  className="rounded-xl bg-rose-600 px-3 py-1 text-xs font-semibold text-white shadow-sm hover:bg-rose-700"
+                  className="rounded-xl bg-[#E8254E] px-3.5 py-1 text-xs font-semibold text-white shadow-sm hover:bg-[#C9183C] cursor-pointer"
                 >
                   Done
                 </button>
@@ -556,7 +812,7 @@ export function FloatingChatWidget() {
                 <button
                   type="button"
                   onClick={startVoiceRecording}
-                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-stone-200 bg-stone-50 text-slate-600 hover:bg-emerald-50 hover:text-emerald-700 hover:border-emerald-200 transition"
+                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-stone-200 bg-stone-50 text-slate-600 hover:bg-rose-50 hover:text-[#C9183C] hover:border-[#FF4365] transition cursor-pointer"
                   title="Speak query (Sarvam AI Voice)"
                   aria-label="Record voice query"
                 >
@@ -567,15 +823,21 @@ export function FloatingChatWidget() {
                   type="text"
                   value={inputText}
                   onChange={(e) => setInputText(e.target.value)}
-                  placeholder={language === "hi" ? "योजनाओं के बारे में पूछें..." : language === "kn" ? "ಯೋಜನೆಗಳ ಬಗ್ಗೆ ಕೇಳಿ..." : "Ask about schemes, documents, eligibility..."}
-                  className="flex-1 rounded-xl border border-stone-200 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none"
+                  placeholder={
+                    language === "hi"
+                      ? "योजनाओं के बारे में पूछें..."
+                      : language === "kn"
+                      ? "ಯೋಜನೆಗಳ ಬಗ್ಗೆ ಕೇಳಿ..."
+                      : "Ask about schemes, eligibility, documents..."
+                  }
+                  className="flex-1 rounded-xl border border-stone-200 px-3 py-2 text-sm focus:border-[#E8254E] focus:outline-none"
                   disabled={loading}
                 />
 
                 <button
                   type="submit"
                   disabled={!inputText.trim() || loading}
-                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-600 text-white shadow-sm hover:bg-emerald-700 disabled:opacity-40 transition"
+                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-[#FF4365] to-[#E8254E] text-white shadow-sm hover:from-[#E8254E] hover:to-[#C9183C] disabled:opacity-40 transition cursor-pointer"
                   aria-label="Send message"
                 >
                   <Send size={16} />
