@@ -2,6 +2,7 @@ import { Eye, EyeOff } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAppContext } from "../context/AppContext";
+import { SUPPORTED_LANGUAGES } from "../utils/languages";
 
 export function SignupPage() {
   const { signup } = useAppContext();
@@ -42,9 +43,11 @@ export function SignupPage() {
             <button type="button" className="absolute right-3 top-3" onClick={() => setShowConfirm((s) => !s)}>{showConfirm ? <EyeOff size={18} /> : <Eye size={18} />}</button>
           </div>
           <select className="min-h-12 rounded-xl border px-4" value={form.preferred_language} onChange={(e) => setForm({ ...form, preferred_language: e.target.value })}>
-            <option value="en">English</option>
-            <option value="hi">Hindi</option>
-            <option value="kn">Kannada</option>
+            {SUPPORTED_LANGUAGES.map((lang) => (
+              <option key={lang.code} value={lang.code}>
+                {lang.nativeLabel} ({lang.label})
+              </option>
+            ))}
           </select>
           <input className="min-h-12 rounded-xl border px-4 md:col-span-2" placeholder="Optional phone number" value={form.phone_number} onChange={(e) => setForm({ ...form, phone_number: e.target.value })} />
           <div className="text-sm text-slate-600 md:col-span-2">Password strength: <span className="font-semibold">{strength}</span></div>

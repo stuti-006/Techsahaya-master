@@ -49,7 +49,7 @@ export function cleanTextForSpeech(rawText: string): string {
   text = text.replace(/\s+•\s+/g, ". ");
 
   // 9. Format key-value pairs (e.g. "Overview: text" -> "Overview. text")
-  text = text.replace(/([A-Za-z0-9\u0900-\u097F\u0C80-\u0CFF]+):\s*/g, "$1. ");
+  text = text.replace(/([A-Za-z0-9\u0900-\u0D7F]+):\s*/g, "$1. ");
 
   // 10. Remove special brackets and markdown symbols that cause vocal artifacts
   text = text.replace(/[\\#{}\[\]()<>~^|]/g, " ");
@@ -67,3 +67,96 @@ export function cleanTextForSpeech(rawText: string): string {
 
   return text;
 }
+
+export function languageToBCP47(language: string): string {
+  const lang = (language || "en").toLowerCase().trim();
+  const map: Record<string, string> = {
+    en: "en-IN",
+    hi: "hi-IN",
+    kn: "kn-IN",
+    te: "te-IN",
+    ta: "ta-IN",
+    ml: "ml-IN",
+    bn: "bn-IN",
+    mr: "mr-IN",
+    gu: "gu-IN",
+  };
+  return map[lang] || (lang.includes("-") ? lang : `${lang}-IN`);
+}
+
+let activeAudioElement: HTMLAudioElement | null = null;
+let isSpeakingUtterance = false;
+
+export function hasActivePlayback(): boolean {
+  if (activeAudioElement && !activeAudioElement.paused && !activeAudioElement.ended) {
+    return true;
+  }
+  if ("speechSynthesis" in window && (window.speechSynthesis.speaking || window.speechSynthesis.pending || isSpeakingUtterance)) {
+    return true;
+  }
+  return false;
+}
+
+export function stopAllPlayback(): void {
+  if (activeAudioElement) {
+    activeAudioElement.pause();
+    activeAudioElement = null;
+  }
+  if ("speechSynthesis" in window) {
+    window.speechSynthesis.cancel();
+  }
+  isSpeakingUtterance = false;
+}
+
+export function playExclusiveAudio(
+  audioElement: HTMLAudioElement,
+  onPlay?: () => void,
+  onEnd?: () => void,
+  onError?: () => void
+): Promise<void> {
+  stopAllPlayback();
+  activeAudioElement = audioElement;
+
+  audioElement.onended = () => {
+    if (activeAudioElement === audioElement) {
+      activeAudioElement = null;
+    }
+    onEnd?.();
+  };
+
+  audioElement.onerror = () => {
+    if (activeAudioElement === audioElement) {
+      activeAudioElement = null;
+    }
+    onError?.();
+  };
+
+  onPlay?.();
+  return audioElement.play();
+}
+
+export function speakExclusive(
+  utterance: SpeechSynthesisUtterance,
+  onStart?: () => void,
+  onEnd?: () => void,
+  onError?: () => void
+): void {
+  stopAllPlayback();
+  if ("speechSynthesis" in window) {
+    isSpeakingUtterance = true;
+    utterance.onstart = () => {
+      isSpeakingUtterance = true;
+      onStart?.();
+    };
+    utterance.onend = () => {
+      isSpeakingUtterance = false;
+      onEnd?.();
+    };
+    utterance.onerror = () => {
+      isSpeakingUtterance = false;
+      onError?.();
+    };
+    window.speechSynthesis.speak(utterance);
+  }
+}
+

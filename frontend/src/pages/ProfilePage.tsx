@@ -4,31 +4,38 @@ import { SectionCard } from "../components/SectionCard";
 import { useAppContext } from "../context/AppContext";
 import { api } from "../services/api";
 import { t } from "../utils/i18n";
+import { SUPPORTED_LANGUAGES } from "../utils/languages";
 
 const friendlyFieldNames: Record<string, Record<string, string>> = {
-  full_name: { en: "Name", hi: "नाम", kn: "ಹೆಸರು" },
-  email: { en: "Email", hi: "ईमेल", kn: "ಇಮೇಲ್" },
-  phone_number: { en: "Phone number", hi: "फोन नंबर", kn: "ಫೋನ್ ಸಂಖ್ಯೆ" },
-  preferred_language: { en: "Preferred language", hi: "पसंदीदा भाषा", kn: "ಆದ್ಯತೆಯ ಭಾಷೆ" },
-  accessibility_preference: { en: "Accessibility preference", hi: "सुगमता विकल्प", kn: "ಪ್ರವೇಶಿಸುವಿಕೆ ಆಯ್ಕೆ" },
-  consent_given: { en: "Consent status", hi: "सहमति स्थिति", kn: "ಸಮ್ಮತಿ ಸ್ಥಿತಿ" },
-  age: { en: "Age", hi: "आयु", kn: "ವಯಸ್ಸು" },
-  gender: { en: "Gender", hi: "लिंग", kn: "ಲಿಂಗ" },
-  state: { en: "State", hi: "राज्य", kn: "ರಾಜ್ಯ" },
-  occupation: { en: "Occupation", hi: "व्यवसाय", kn: "ಉದ್ಯೋಗ" },
-  income: { en: "Income range", hi: "आय सीमा", kn: "ಆದಾಯ ಪ್ರಮಾಣ" },
-  landholding: { en: "Landholding", hi: "भूमि", kn: "ಜಮೀನು" },
-  disability: { en: "Disability support need", hi: "दिव्यांगता सहायता", kn: "ಅಂಗವಿಕಲರ ನೆರವು" },
-  family_members: { en: "Family members", hi: "परिवार सदस्य", kn: "ಕುಟುಂಬ ಸದಸ್ಯರು" },
-  available_documents: { en: "Available document names", hi: "उपलब्ध दस्तावेज़", kn: "ಲಭ್ಯವಿರುವ ದಾಖಲೆಗಳು" },
-  recently_viewed_schemes: { en: "Recently viewed schemes", hi: "हाल ही में देखी गई योजनाएँ", kn: "ಇತ್ತೀಚೆಗೆ ನೋಡಿದ ಯೋಜನೆಗಳು" },
-  digital_literacy: { en: "Guidance preference", hi: "मार्गदर्शन विकल्प", kn: "ಮಾರ್ಗದರ್ಶನ ಆದ್ಯತೆ" },
+  full_name: { en: "Name", hi: "नाम", kn: "ಹೆಸರು", te: "పేరు", ta: "பெயர்", ml: "പേര്", bn: "নাম", mr: "नाव", gu: "નામ" },
+  email: { en: "Email", hi: "ईमेल", kn: "ಇಮೇಲ್", te: "ఇమెయిల్", ta: "மின்னஞ்சல்", ml: "ഇമെയിൽ", bn: "ইমেল", mr: "ईमेल", gu: "ઇમેઇલ" },
+  phone_number: { en: "Phone number", hi: "फोन नंबर", kn: "ಫೋನ್ ಸಂಖ್ಯೆ", te: "ఫోన్ నంబర్", ta: "தொலைபேசி எண்", ml: "ഫോൺ നമ്പർ", bn: "ফোন নম্বর", mr: "फोन नंबर", gu: "ફોન નંબર" },
+  preferred_language: { en: "Preferred language", hi: "पसंदीदा भाषा", kn: "ಆದ್ಯತೆಯ ಭಾಷೆ", te: "ప్రాధాన్య భాష", ta: "விருப்பமான மொழி", ml: "തിരഞ്ഞെടുത്ത ഭാഷ", bn: "পছন্দের ভাষা", mr: "पसंतीची भाषा", gu: "પસંદગીની ભાષા" },
+  accessibility_preference: { en: "Accessibility preference", hi: "सुगमता विकल्प", kn: "ಪ್ರವೇಶಿಸುವಿಕೆ ಆಯ್ಕೆ", te: "సదుపాయాల ఎంపిక", ta: "அணுகல்தன்மை விருப்பம்", ml: "പ്രവേശനക്ഷമതാ മുൻഗണന", bn: "অভিগম্যতা পছন্দ", mr: "सुगमता पर्याय", gu: "સુલભતા પસંદગી" },
+  consent_given: { en: "Consent status", hi: "सहमति स्थिति", kn: "ಸಮ್ಮತಿ ಸ್ಥಿತಿ", te: "సమ్మతి స్థితి", ta: "ஒப்புதல் நிலை", ml: "സമ്മത നില", bn: "সম্মতি অবস্থা", mr: "संमती स्थिती", gu: "સંમતિ સ્થિતિ" },
+  age: { en: "Age", hi: "आयु", kn: "ವಯಸ್ಸು", te: "వయస్సు", ta: "வயது", ml: "പ്രായം", bn: "বয়স", mr: "वय", gu: "ઉંમર" },
+  gender: { en: "Gender", hi: "लिंग", kn: "ಲಿಂಗ", te: "లింగం", ta: "பாலினம்", ml: "ലിംഗഭേദം", bn: "লিঙ্গ", mr: "लिंग", gu: "જાતિ" },
+  state: { en: "State", hi: "राज्य", kn: "ರಾಜ್ಯ", te: "రాష్ట్రం", ta: "மாநிலம்", ml: "സംസ്ഥാനം", bn: "রাজ্য", mr: "राज्य", gu: "રાજ્ય" },
+  occupation: { en: "Occupation", hi: "व्यवसाय", kn: "ಉದ್ಯೋಗ", te: "వృత్తి", ta: "தொழில்", ml: "തൊഴിൽ", bn: "পেশা", mr: "व्यवसाय", gu: "વ્યવસાય" },
+  income: { en: "Income range", hi: "आय सीमा", kn: "ಆದಾಯ ಪ್ರಮಾಣ", te: "ఆదాయ పరిధి", ta: "வருமான வரம்பு", ml: "വരുമാന പരിധി", bn: "আয় সীমা", mr: "उत्पन्न श्रेणी", gu: "આવક મર્યાદા" },
+  landholding: { en: "Landholding", hi: "भूमि", kn: "ಜಮೀನು", te: "భూమి", ta: "நில அளவு", ml: "ഭൂമി", bn: "জমি", mr: "जमीन", gu: "જમીન" },
+  disability: { en: "Disability support need", hi: "दिव्यांगता सहायता", kn: "ಅಂಗವಿಕಲರ ನೆರವು", te: "దివ్యాంగ సహాయం", ta: "மாற்றுத்திறன் உதவி", ml: "ഭിന്നശേഷി സഹായം", bn: "প্রতিবন্ধী সহায়তা", mr: "दिव्यांग सहाय्य", gu: "દિવ્યાંગ સહાય" },
+  family_members: { en: "Family members", hi: "परिवार सदस्य", kn: "ಕುಟುಂಬ ಸದಸ್ಯರು", te: "కుటుంబ సభ్యులు", ta: "குடும்ப உறுப்பினர்கள்", ml: "കുടുംബാംഗങ്ങൾ", bn: "পরিবারের সদস্য", mr: "कुटुंब सदस्य", gu: "પરિવારના સભ્યો" },
+  available_documents: { en: "Available document names", hi: "उपलब्ध दस्तावेज़", kn: "ಲಭ್ಯವಿರುವ ದಾಖಲೆಗಳು", te: "అందుబాటులో ఉన్న పత్రాలు", ta: "உள்ள ஆவணங்கள்", ml: "ലഭ്യമായ രേഖകൾ", bn: "উপলব্ধ নথিপত্র", mr: "उपलब्ध कागदपत्रे", gu: "ઉપલબ્ધ દસ્તાવેજો" },
+  recently_viewed_schemes: { en: "Recently viewed schemes", hi: "हाल ही में देखी गई योजनाएँ", kn: "ಇತ್ತೀಚೆಗೆ ನೋಡಿದ ಯೋಜನೆಗಳು", te: "ఇటీవల చూసిన పథకాలు", ta: "சமீபத்தில் பார்த்த திட்டங்கள்", ml: "അടുത്തിടെ കണ്ട പദ്ധതികൾ", bn: "সম্প্রতি দেখা প্রকল্প", mr: "नुकत्याच पाहिलेल्या योजना", gu: "તાજેતરમાં જોયેલી યોજનાઓ" },
+  digital_literacy: { en: "Guidance preference", hi: "मार्गदर्शन विकल्प", kn: "ಮಾರ್ಗದರ್ಶನ ಆದ್ಯತೆ", te: "మార్గదర్శక ప్రాధాన్యత", ta: "வழிகாட்டுதல் விருப்பம்", ml: "മാർഗ്ഗനിർദ്ദേശ മുൻഗണന", bn: "নির্দেশিকা পছন্দ", mr: "मार्गदर्शन पर्याय", gu: "માર્ગદર્શન પસંદગી" },
 };
 
 const neverStoredItems: Record<string, string[]> = {
   en: ["Full Aadhaar number", "Full PAN number", "Biometric data", "Raw identity documents"],
   hi: ["पूरा आधार नंबर", "पूरा पैन नंबर", "बायोमेट्रिक डेटा", "मूल पहचान पत्र की तस्वीर"],
   kn: ["ಪೂರ್ಣ ಆಧಾರ್ ಸಂಖ್ಯೆ", "ಪೂರ್ಣ ಪ್ಯಾನ್ ಸಂಖ್ಯೆ", "ಬಯೋಮೆಟ್ರಿಕ್ ಡೇಟಾ", "ಮೂಲ ಗುರುತಿನ ಚೀಟಿಯ ಚಿತ್ರ"],
+  te: ["పూర్తి ఆధార్ నంబర్", "పూర్తి పాన్ నంబర్", "బయోమెట్రిక్ వివరాలు", "గుర్తింపు కార్డు చిత్రాలు"],
+  ta: ["முழு ஆதார் எண்", "முழு பான் எண்", "பயோமெட்ரிக் தரவு", "அடையாள அட்டை படங்கள்"],
+  ml: ["പൂർണ്ണ ആധാർ നമ്പർ", "പൂർണ്ണ പാൻ നമ്പർ", "ബയോമെട്രിക് ഡാറ്റ", "തിരിച്ചറിയൽ രേഖകൾ"],
+  bn: ["সম্পূর্ণ আধার নম্বর", "সম্পূর্ণ প্যান নম্বর", "বায়োমেট্রিক তথ্য", "আসল নথির ছবি"],
+  mr: ["पूर्ण आधार क्रमांक", "पूर्ण पॅन क्रमांक", "बायोमेट्रिक डेटा", "मूळ ओळखपत्राची प्रत"],
+  gu: ["સંપૂર્ણ આધાર નંબર", "સંપૂર્ણ પાન નંબર", "બાયોમેટ્રિક ડેટા", "મૂળ ઓળખપત્રનો ફોટો"],
 };
 
 export function ProfilePage() {
@@ -41,9 +48,9 @@ export function ProfilePage() {
     api.get("/api/profile").then((res) => setStoredSummary(res.data.stored_data_summary)).catch(() => undefined);
   }, []);
 
-  const langKey = language === "hi" ? "hi" : language === "kn" ? "kn" : "en";
+  const langKey = language.toLowerCase().trim();
 
-  const fieldsStored = (storedSummary?.fields_stored || []).map((field: string) => friendlyFieldNames[field]?.[langKey] || field);
+  const fieldsStored = (storedSummary?.fields_stored || []).map((field: string) => friendlyFieldNames[field]?.[langKey] || friendlyFieldNames[field]?.en || field);
   const neverStored = neverStoredItems[langKey] || neverStoredItems.en;
 
   return (
@@ -56,9 +63,11 @@ export function ProfilePage() {
         <div className="mb-4 flex flex-wrap items-center gap-3">
           <label className="text-sm font-semibold" htmlFor="profile-language">{t(language, "language")}</label>
           <select id="profile-language" className="min-h-12 rounded-xl border p-3" value={language} onChange={(e) => setLanguage(e.target.value)}>
-            <option value="en">English</option>
-            <option value="hi">Hindi</option>
-            <option value="kn">Kannada</option>
+            {SUPPORTED_LANGUAGES.map((lang) => (
+              <option key={lang.code} value={lang.code}>
+                {lang.nativeLabel} ({lang.label})
+              </option>
+            ))}
           </select>
         </div>
         <ProfileForm

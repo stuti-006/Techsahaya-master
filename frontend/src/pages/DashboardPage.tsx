@@ -7,7 +7,12 @@ import { SectionCard } from "../components/SectionCard";
 import { useAppContext } from "../context/AppContext";
 import { api } from "../services/api";
 import { t } from "../utils/i18n";
+import { SUPPORTED_LANGUAGES } from "../utils/languages";
+import { hasActivePlayback, playExclusiveAudio, stopAllPlayback } from "../utils/speechUtils";
 import type { Scheme } from "../types";
+
+const getDashboardSummaryAutoplayKey = (userId?: string) =>
+  `sahaya_dashboard_summary_autoplayed:${userId || "guest"}`;
 
 export function DashboardPage() {
   const { profile, user, notifications, language } = useAppContext();
@@ -20,20 +25,31 @@ export function DashboardPage() {
   const [summaryAutoplayBlocked, setSummaryAutoplayBlocked] = useState(false);
   const summaryAudioRef = useRef<HTMLAudioElement | null>(null);
   const summaryRequestedKeys = useRef(new Set<string>());
-  const summaryPlayedKeys = useRef(new Set<string>());
 
   const profileKey = JSON.stringify(profile);
   const eligibilityKey = `${profileKey}:${language}`;
 
   useEffect(() => {
+    return () => {
+      if (summaryAudioRef.current) {
+        summaryAudioRef.current.pause();
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    let isMounted = true;
+    const autoplayKey = getDashboardSummaryAutoplayKey(user?.id);
+
     if (summaryRequestedKeys.current.has(eligibilityKey)) return;
     summaryRequestedKeys.current.add(eligibilityKey);
-    api.get("/api/recommendations").then((res) => setRecommendations(res.data)).catch(() => setRecommendations([]));
-    api.get("/api/welfare-gaps").then((res) => setGaps(res.data)).catch(() => setGaps([]));
+    api.get("/api/recommendations").then((res) => { if (isMounted) setRecommendations(res.data); }).catch(() => { if (isMounted) setRecommendations([]); });
+    api.get("/api/welfare-gaps").then((res) => { if (isMounted) setGaps(res.data); }).catch(() => { if (isMounted) setGaps([]); });
     setEligibleError("");
     setSummaryAudio(null);
     api.get("/api/eligible-schemes")
       .then((res) => {
+        if (!isMounted) return;
         const schemes = res.data as Scheme[];
         setEligibleSchemes(schemes);
         if (!schemes.length) return;
@@ -44,37 +60,60 @@ export function DashboardPage() {
         });
       })
       .then((res) => {
-        if (!res) return;
+        if (!isMounted || !res) return;
         const nextAudio = { summary: res.data.summary, base64: res.data.audio_base64, mime: res.data.audio_mime || "audio/wav" };
         setSummaryAudio(nextAudio);
-        if (summaryPlayedKeys.current.has(eligibilityKey)) return;
-        summaryPlayedKeys.current.add(eligibilityKey);
-        if (!nextAudio.base64) return;
-        const player = new Audio(`data:${nextAudio.mime};base64,${nextAudio.base64}`);
-        summaryAudioRef.current = player;
-        player.onended = () => setSummaryPlaying(false);
-        setSummaryPlaying(true);
-        player.play().catch(() => {
-          setSummaryPlaying(false);
-          setSummaryAutoplayBlocked(true);
-        });
+
+        const hasAutoplayedBefore = localStorage.getItem(autoplayKey) === "true";
+        // Guard: only autoplay if user has not heard it before, component is still mounted, AND no other audio is actively playing
+        if (!hasAutoplayedBefore && nextAudio.base64 && !hasActivePlayback()) {
+          const player = new Audio(`data:${nextAudio.mime};base64,${nextAudio.base64}`);
+          summaryAudioRef.current = player;
+          playExclusiveAudio(
+            player,
+            () => {
+              localStorage.setItem(autoplayKey, "true"); // only mark played once it actually starts
+              if (isMounted) setSummaryPlaying(true);
+            },
+            () => { if (isMounted) setSummaryPlaying(false); },
+            () => {
+              if (isMounted) {
+                setSummaryPlaying(false);
+                setSummaryAutoplayBlocked(true);
+              }
+            }
+          ).catch(() => {
+            if (isMounted) {
+              setSummaryPlaying(false);
+              setSummaryAutoplayBlocked(true);
+            }
+          });
+        }
       })
-      .catch(() => setEligibleError(t(language, "eligibleSchemesError")));
-  }, [eligibilityKey, profile, language, user?.full_name]);
+      .catch(() => {
+        if (isMounted) setEligibleError(t(language, "eligibleSchemesError"));
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [eligibilityKey, profile, language, user?.id, user?.full_name]);
 
   const playSummary = () => {
     if (!summaryAudio?.base64) return;
     const player = new Audio(`data:${summaryAudio.mime};base64,${summaryAudio.base64}`);
     summaryAudioRef.current = player;
-    setSummaryPlaying(true);
     setSummaryAutoplayBlocked(false);
-    player.onended = () => setSummaryPlaying(false);
-    player.onerror = () => setSummaryPlaying(false);
-    player.play().catch(() => setSummaryPlaying(false));
+    playExclusiveAudio(
+      player,
+      () => setSummaryPlaying(true),
+      () => setSummaryPlaying(false),
+      () => setSummaryPlaying(false)
+    ).catch(() => setSummaryPlaying(false));
   };
 
   const stopSummary = () => {
-    summaryAudioRef.current?.pause();
+    stopAllPlayback();
     setSummaryPlaying(false);
   };
 
@@ -103,34 +142,98 @@ export function DashboardPage() {
     },
   ];
 
+  const getStepDescription = (stepId: number): string => {
+    switch (stepId) {
+      case 1:
+        if (language === "hi") return "आयु, राज्य और व्यवसाय विवरण जोड़ें";
+        if (language === "kn") return "ವಯಸ್ಸು, ರಾಜ್ಯ ಮತ್ತು ಉದ್ಯೋಗ ವಿವರಗಳನ್ನು ಸೇರಿಸಿ";
+        if (language === "te") return "వయస్సు, రాష్ట్రం మరియు వృత్తి వివరాలను జోడించండి";
+        if (language === "ta") return "வயது, மாநிலம் மற்றும் தொழில் விவரங்களைச் சேர்க்கவும்";
+        if (language === "ml") return "പ്രായം, സംസ്ഥാനം, തൊഴിൽ വിവരങ്ങൾ ചേർക്കുക";
+        if (language === "bn") return "বয়স, রাজ্য এবং পেশার বিবরণ যোগ করুন";
+        if (language === "mr") return "वय, राज्य आणि व्यवसाय तपशील जोडा";
+        if (language === "gu") return "ઉંમર, રાજ્ય અને વ્યવસાયની વિગતો ઉમેરો";
+        return "Add age, state and occupation details";
+      case 2:
+        if (language === "hi") return "पहचान और आय सत्यापन दस्तावेज़ जोड़ें";
+        if (language === "kn") return "ಗುರುತು ಮತ್ತು ಆದಾಯ ಪರಿಶೀಲನಾ ದಾಖಲೆಗಳನ್ನು ಸೇರಿಸಿ";
+        if (language === "te") return "గుర్తింపు మరియు ఆదాయ ధృవీకరణ పత్రాలను జోడించండి";
+        if (language === "ta") return "அடையாளம் மற்றும் வருமான சரிபார்ப்பு ஆவணங்களைச் சேர்க்கவும்";
+        if (language === "ml") return "തിരിച്ചറിയൽ, വരുമാന സാക്ഷ്യപത്രങ്ങൾ ചേർക്കുക";
+        if (language === "bn") return "পরিচয় এবং আয় যাচাইকরণ নথি যোগ করুন";
+        if (language === "mr") return "ओळख आणि उत्पन्न पडताळणी कागदपत्रे जोडा";
+        if (language === "gu") return "ઓળખ અને આવક ચકાસણી દસ્તાવેજો ઉમેરો";
+        return "Add identity and income verification documents";
+      case 3:
+        if (language === "hi") return "योजनाओं के लिए अपनी पात्रता जाँचें";
+        if (language === "kn") return "ಯೋಜನೆಗಳಿಗೆ ನಿಮ್ಮ ಅರ್ಹತೆಯನ್ನು ಪರಿಶೀಲಿಸಿ";
+        if (language === "te") return "పథకాలకు మీ అర్హతను అంచనా వేయండి";
+        if (language === "ta") return "திட்டங்களுக்கான உங்கள் தகுதியை மதிப்பிடுங்கள்";
+        if (language === "ml") return "പദ്ധതികൾക്കായുള്ള നിങ്ങളുടെ യോഗ്യത പരിശോധിക്കുക";
+        if (language === "bn") return "স্কিমগুলির জন্য আপনার যোগ্যতা মূল্যায়ন করুন";
+        if (language === "mr") return "योजनांसाठी आपली पात्रता तपासा";
+        if (language === "gu") return "યોજનાઓ માટે તમારી પાત્રતા તપાસો";
+        return "Evaluate scheme rules against your profile";
+      case 4:
+        if (language === "hi") return "परिवार के सदस्यों को जोड़कर लाभ बढ़ाएँ";
+        if (language === "kn") return "ಕುಟುಂಬ ಸದಸ್ಯರನ್ನು ಸೇರಿಸಿ ಪ್ರಯೋಜನಗಳನ್ನು ಹೆಚ್ಚಿಸಿ";
+        if (language === "te") return "కుటుంబ ప్రయోజనాలను పొందడానికి సభ్యులను జోడించండి";
+        if (language === "ta") return "குடும்ப நன்மைகளைப் பெற உறுப்பினர்களைச் சேர்க்கவும்";
+        if (language === "ml") return "കുടുംബ ആനുകൂല്യങ്ങൾ ലഭിക്കാൻ അംഗങ്ങളെ ചേർക്കുക";
+        if (language === "bn") return "পারিবারিক সুবিধা পেতে সদস্যদের যোগ করুন";
+        if (language === "mr") return "कुटुंब लाभ मिळवण्यासाठी सदस्यांची नोंद करा";
+        if (language === "gu") return "કૌટુંબિક લાભો મેળવવા સભ્યો ઉમેરો";
+        return "Add family members to unlock household benefits";
+      case 5:
+        if (language === "hi") return "पात्र योजनाओं की पहचान करें जो आपसे छूट गई हैं";
+        if (language === "kn") return "ನೀವು ಪಡೆಯಬಹುದಾದ ಕಲ್ಯಾಣ ಯೋಜನೆಗಳನ್ನು ಪರಿಶೀಲಿಸಿ";
+        if (language === "te") return "మీరు అర్హత కలిగి ఉండి క్లెయిమ్ చేయని సంక్షేమ పథకాలను కనుగొనండి";
+        if (language === "ta") return "நீங்கள் தகுதியுள்ள ஆனால் பெறாத நலத்திட்டங்களைக் கண்டறியவும்";
+        if (language === "ml") return "നിങ്ങൾക്ക് അർഹതയുള്ളതും എന്നാൽ ലഭ്യമാകാത്തതുമായ ക്ഷേമപദ്ധതികൾ കണ്ടെത്തുക";
+        if (language === "bn") return "আপনি যোগ্য কিন্তু দাবি করেননি এমন কল্যাণমূলক স্কিমগুলি খুঁজুন";
+        if (language === "mr") return "आपण पात्र असलेल्या परंतु न मिळालेल्या कल्याणकारी योजना शोधा";
+        if (language === "gu") return "તમે પાત્ર છો પરંતુ દાવો કર્યો નથી તેવી કલ્યાણકારી યોજનાઓ શોધો";
+        return "Find welfare schemes you qualify for but haven't claimed";
+      default:
+        return "";
+    }
+  };
+
   const onboardingSteps: OnboardingStep[] = [
     {
       id: 1,
       title: t(language, "completeProfile"),
-      description: language === "hi" ? "आयु, राज्य और व्यवसाय विवरण जोड़ें" : language === "kn" ? "ವಯಸ್ಸು, ರಾಜ್ಯ ಮತ್ತು ಉದ್ಯೋಗ ವಿವರಗಳನ್ನು ಸೇರಿಸಿ" : "Add age, state and occupation details",
+      description: getStepDescription(1),
       isCompleted: Boolean(profile.age && profile.state && profile.occupation),
       route: "/profile",
     },
     {
       id: 2,
       title: t(language, "prepareDocuments"),
-      description: language === "hi" ? "पहचान और आय सत्यापन दस्तावेज़ जोड़ें" : language === "kn" ? "ಗುರುತು ಮತ್ತು ಆದಾಯ ಪರಿಶೀಲನಾ ದಾಖಲೆಗಳನ್ನು ಸೇರಿಸಿ" : "Add identity and income verification documents",
+      description: getStepDescription(2),
       isCompleted: Boolean(profile.available_documents?.length),
       route: "/documents",
     },
     {
       id: 3,
       title: t(language, "checkEligibility"),
-      description: language === "hi" ? "योजनाओं के लिए अपनी पात्रता जाँचें" : language === "kn" ? "ಯೋಜನೆಗಳಿಗೆ ನಿಮ್ಮ ಅರ್ಹತೆಯನ್ನು ಪರಿಶೀಲಿಸಿ" : "Evaluate scheme rules against your profile",
+      description: getStepDescription(3),
       isCompleted: recommendations.length > 0,
       route: "/eligibility",
     },
     {
       id: 4,
       title: t(language, "familyBenefits"),
-      description: language === "hi" ? "परिवार के सदस्यों को जोड़कर लाभ बढ़ाएँ" : language === "kn" ? "ಕುಟುಂಬ ಸದಸ್ಯರನ್ನು ಸೇರಿಸಿ ಪ್ರಯೋಜನಗಳನ್ನು ಹೆಚ್ಚಿಸಿ" : "Add family members to unlock household benefits",
+      description: getStepDescription(4),
       isCompleted: Boolean(profile.family_members?.length),
       route: "/family",
+    },
+    {
+      id: 5,
+      title: t(language, "missingBenefits"),
+      description: getStepDescription(5),
+      isCompleted: gaps.length === 0 && Boolean(profile.age && profile.occupation),
+      route: "/welfare-gaps",
     },
   ];
 
@@ -156,8 +259,29 @@ export function DashboardPage() {
           <div className="grid grid-cols-2 gap-3 text-sm">
             <div className="rounded-2xl border border-emerald-100 bg-emerald-50 p-4">
               <Languages className="mb-2 text-sahaya-green" />
-              <b>{language === "hi" ? "3 भाषाएँ" : language === "kn" ? "3 ಭಾಷೆಗಳು" : "3 languages"}</b>
-              <p className="text-slate-600">English, Hindi, Kannada</p>
+              <b>
+                {SUPPORTED_LANGUAGES.length}{" "}
+                {language === "hi"
+                  ? "भाषाएँ"
+                  : language === "kn"
+                  ? "ಭಾಷೆಗಳು"
+                  : language === "te"
+                  ? "భాషలు"
+                  : language === "ta"
+                  ? "மொழிகள்"
+                  : language === "ml"
+                  ? "ഭാഷകൾ"
+                  : language === "bn"
+                  ? "ভাষা"
+                  : language === "mr"
+                  ? "भाषा"
+                  : language === "gu"
+                  ? "ભાષાઓ"
+                  : "Languages"}
+              </b>
+              <p className="text-slate-600 line-clamp-2">
+                English, हिन्दी, ಕನ್ನಡ, తెలుగు, தமிழ், മലയാളം, বাংলা, मराठी, ગુજરાતી
+              </p>
             </div>
             <div className="rounded-2xl border border-emerald-100 bg-emerald-50 p-4">
               <ShieldCheck className="mb-2 text-sahaya-green" />
@@ -239,6 +363,9 @@ export function DashboardPage() {
               </div>
             ))}
             {gaps.length === 0 && <p className="text-sm text-slate-600">{t(language, "noGapsYet")}</p>}
+            <Link to="/welfare-gaps" className="mt-2 inline-flex min-h-10 items-center gap-1.5 font-semibold text-sahaya-green hover:underline text-sm">
+              {t(language, "missingBenefits")} <ArrowRight size={16} />
+            </Link>
           </div>
         </SectionCard>
 

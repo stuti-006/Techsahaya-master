@@ -1,4 +1,4 @@
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import {
   Compass,
   FileCheck2,
@@ -17,7 +17,7 @@ import { useAppContext } from "../context/AppContext";
 import { useTour } from "../context/TourContext";
 import { api } from "../services/api";
 import { t } from "../utils/i18n";
-import { cleanTextForSpeech } from "../utils/speechUtils";
+import { cleanTextForSpeech, languageToBCP47, playExclusiveAudio, speakExclusive, stopAllPlayback } from "../utils/speechUtils";
 
 const suggestedQuestions: Record<string, string[]> = {
   en: [
@@ -38,6 +38,42 @@ const suggestedQuestions: Record<string, string[]> = {
     "PM-Kisan ಗೆ ಯಾವ ದಾಖಲೆಗಳನ್ನು ಅಪ್‌ಲೋಡ್ ಮಾಡಬೇಕು?",
     "ನಾನು ಯಾವ ಸವಲತ್ತುಗಳನ್ನು ಕಳೆದುಕೊಳ್ಳುತ್ತಿದ್ದೇನೆ?",
   ],
+  te: [
+    "రైతుల కోసం ఏ ప్రభుత్వ పథకాలు అందుబాటులో ఉన్నాయి?",
+    "1.2 లక్షల ఆదాయంతో స్కాలర్‌షిప్‌కు దరఖాస్తు చేసుకోవచ్చా?",
+    "PM-Kisan పథకానికి ఏ పత్రాలు అవసరం?",
+    "నాకు వర్తించే సంక్షేమ పథకాలు ఏవి?",
+  ],
+  ta: [
+    "விவசாயிகளுக்கான அரசு திட்டங்கள் என்னென்ன?",
+    "1.2 லட்சம் வருமானத்தில் கல்வி உதவித்தொகை பெற முடியுமா?",
+    "PM-Kisan திட்டத்திற்கு என்ன ஆவணங்கள் தேவை?",
+    "நான் பெறக்கூடிய நலத்திட்டங்கள் எவை?",
+  ],
+  ml: [
+    "കർഷകർക്കുള്ള സർക്കാർ പദ്ധതികൾ ഏതെല്ലാമാണ്?",
+    "1.2 ലക്ഷം രൂപ വരുമാനത്തിൽ സ്കോളർഷിപ്പിന് അപേക്ഷിക്കാമോ?",
+    "PM-Kisan പദ്ധതിക്ക് ആവശ്യമായ രേഖകൾ ഏതെല്ലാം?",
+    "എനിക്ക് ലഭിക്കാൻ സാധ്യതയുള്ള ആനുകൂല്യങ്ങൾ ഏവ?",
+  ],
+  bn: [
+    "কৃষকদের জন্য কী কী সরকারি প্রকল্প রয়েছে?",
+    "১.২ লক্ষ আয়ে কি বৃত্তির জন্য আবেদন করা যাবে?",
+    "PM-Kisan প্রকল্পের জন্য কী কী নথি প্রয়োজন?",
+    "আমার প্রাপ্য কল্যাণ প্রকল্পগুলি কী কী?",
+  ],
+  mr: [
+    "शेतकऱ्यांसाठी कोणत्या सरकारी योजना उपलब्ध आहेत?",
+    "१.२ लाख उत्पन्नासह मी शिष्यवृत्तीसाठी अर्ज करू शकतो का?",
+    "PM-Kisan योजनेसाठी कोणती कागदपत्रे लागतील?",
+    "मला मिळू शकणाऱ्या कल्याणकारी योजना कोणत्या?",
+  ],
+  gu: [
+    "ખેડૂતો માટે કઈ સરકારી યોજનાઓ ઉપલબ્ધ છે?",
+    "૧.૨ લાખ આવક સાથે હું શિષ્યવૃત્તિ માટે અરજી કરી શકું?",
+    "PM-Kisan યોજના માટે કયા દસ્તાવેજોની જરૂર છે?",
+    "મારા મળવાપાત્ર કલ્યાણકારી લાભો કયા છે?",
+  ],
 };
 
 export function AskPage() {
@@ -56,7 +92,12 @@ export function AskPage() {
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
-  const audioElementRef = useRef<HTMLAudioElement | null>(null);
+
+  useEffect(() => {
+    return () => {
+      stopAllPlayback();
+    };
+  }, []);
 
   const ask = async (prompt = message) => {
     if (!prompt.trim()) return;
@@ -72,6 +113,9 @@ export function AskPage() {
       setResponse(res.data);
       if (res.data?.audio_base64) {
         setAudioBase64(res.data.audio_base64);
+        playAudio(res.data.audio_base64, res.data.answer);
+      } else if (res.data?.answer) {
+        playAudio(null, res.data.answer);
       }
     } catch (err: any) {
       if (err?.response?.status === 429) {
@@ -156,15 +200,9 @@ export function AskPage() {
 
         if (data.audio_base64) {
           setAudioBase64(data.audio_base64);
-          playAudio(data.audio_base64);
-        } else if ("speechSynthesis" in window && data.response?.answer) {
-          // Browser TTS Fallback
-          const speechText = cleanTextForSpeech(data.response.answer);
-          if (speechText) {
-            const utterance = new SpeechSynthesisUtterance(speechText);
-            utterance.lang = language === "hi" ? "hi-IN" : language === "kn" ? "kn-IN" : "en-IN";
-            window.speechSynthesis.speak(utterance);
-          }
+          playAudio(data.audio_base64, data.response?.answer);
+        } else if (data.response?.answer) {
+          playAudio(null, data.response.answer);
         }
       } catch (err: any) {
         if (err?.response?.status === 429) {
@@ -175,31 +213,44 @@ export function AskPage() {
           setError(t(language, "voiceUnderstandingError"));
         }
       } finally {
-
         setLoading(false);
         setVoiceStatus("");
       }
     };
   };
 
-  const playAudio = (b64Audio: string) => {
-    if (audioElementRef.current) {
-      audioElementRef.current.pause();
+  const playAudio = (b64Audio: string | null, textFallback?: string) => {
+    if (audioPlaying) {
+      stopAudio();
+      return;
     }
-    const audio = new Audio(`data:audio/wav;base64,${b64Audio}`);
-    audioElementRef.current = audio;
-    setAudioPlaying(true);
 
-    audio.onended = () => setAudioPlaying(false);
-    audio.onerror = () => setAudioPlaying(false);
-    audio.play().catch(() => setAudioPlaying(false));
+    if (b64Audio) {
+      const audio = new Audio(`data:audio/wav;base64,${b64Audio}`);
+      playExclusiveAudio(
+        audio,
+        () => setAudioPlaying(true),
+        () => setAudioPlaying(false),
+        () => setAudioPlaying(false)
+      ).catch(() => setAudioPlaying(false));
+    } else if ("speechSynthesis" in window && textFallback) {
+      const speechText = cleanTextForSpeech(textFallback);
+      if (speechText) {
+        const utterance = new SpeechSynthesisUtterance(speechText);
+        utterance.lang = languageToBCP47(language || "en");
+        speakExclusive(
+          utterance,
+          () => setAudioPlaying(true),
+          () => setAudioPlaying(false),
+          () => setAudioPlaying(false)
+        );
+      }
+    }
   };
 
   const stopAudio = () => {
-    if (audioElementRef.current) {
-      audioElementRef.current.pause();
-      setAudioPlaying(false);
-    }
+    stopAllPlayback();
+    setAudioPlaying(false);
   };
 
   return (

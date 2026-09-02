@@ -23,6 +23,15 @@ export function ProfileForm({
 
   const buttonText = submitLabel || t(language, "save");
 
+  const DOCUMENT_OPTIONS = [
+    { value: "income_certificate", label: t(language, "docIncomeCertificate") },
+    { value: "land_record", label: t(language, "docLandRecord") },
+    { value: "ration_card", label: t(language, "docRationCard") },
+    { value: "disability_certificate", label: t(language, "docDisabilityCertificate") },
+    { value: "caste_certificate", label: t(language, "docCasteCertificate") },
+    { value: "generic_sample_document", label: t(language, "docGenericSample") },
+  ];
+
   return (
     <form
       className="grid gap-4 md:grid-cols-2"
@@ -45,9 +54,33 @@ export function ProfileForm({
         <input type="checkbox" checked={form.disability || false} onChange={(e) => update("disability", e.target.checked)} />
         {t(language, "disability")}
       </label>
-      <input className="min-h-12 rounded-xl border p-3 md:col-span-2" placeholder={t(language, "documentsList")} value={(form.available_documents || []).join(", ")} onChange={(e) => update("available_documents", e.target.value.split(",").map((item) => item.trim()).filter(Boolean) as never)} />
-      <button data-tour="profile-save-button" className="min-h-12 rounded-xl bg-sahaya-green px-4 font-semibold text-white md:col-span-2 shadow-sm hover:opacity-90 transition" type="submit">{buttonText}</button>
 
+      <div className="md:col-span-2 space-y-2">
+        <label className="text-sm font-medium text-slate-700 dark:text-slate-200">
+          {t(language, "requiredDocuments") || "Available Verification Documents"}
+        </label>
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
+          {DOCUMENT_OPTIONS.map((doc) => (
+            <label key={doc.value} className="flex items-center gap-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white/50 dark:bg-slate-800/50 p-3 text-sm cursor-pointer hover:border-sahaya-green transition">
+              <input
+                type="checkbox"
+                className="h-4 w-4 rounded text-sahaya-green focus:ring-sahaya-green"
+                checked={(form.available_documents || []).includes(doc.value)}
+                onChange={(e) => {
+                  const current = form.available_documents || [];
+                  const next = e.target.checked
+                    ? [...current, doc.value]
+                    : current.filter((v) => v !== doc.value);
+                  update("available_documents", next as never);
+                }}
+              />
+              <span className="text-slate-800 dark:text-slate-200">{doc.label}</span>
+            </label>
+          ))}
+        </div>
+      </div>
+
+      <button data-tour="profile-save-button" className="min-h-12 rounded-xl bg-sahaya-green px-4 font-semibold text-white md:col-span-2 shadow-sm hover:opacity-90 transition" type="submit">{buttonText}</button>
     </form>
   );
 }

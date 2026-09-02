@@ -26,14 +26,6 @@
       "bcp47": "kn-IN"
     },
     {
-      "code": "ta",
-      "label": "Tamil",
-      "native_label": "தமிழ்",
-      "direction": "ltr",
-      "sarvam_code": "ta-IN",
-      "bcp47": "ta-IN"
-    },
-    {
       "code": "te",
       "label": "Telugu",
       "native_label": "తెలుగు",
@@ -42,12 +34,44 @@
       "bcp47": "te-IN"
     },
     {
+      "code": "ta",
+      "label": "Tamil",
+      "native_label": "தமிழ்",
+      "direction": "ltr",
+      "sarvam_code": "ta-IN",
+      "bcp47": "ta-IN"
+    },
+    {
+      "code": "ml",
+      "label": "Malayalam",
+      "native_label": "മലയാളം",
+      "direction": "ltr",
+      "sarvam_code": "ml-IN",
+      "bcp47": "ml-IN"
+    },
+    {
+      "code": "bn",
+      "label": "Bengali",
+      "native_label": "বাংলা",
+      "direction": "ltr",
+      "sarvam_code": "bn-IN",
+      "bcp47": "bn-IN"
+    },
+    {
       "code": "mr",
       "label": "Marathi",
       "native_label": "मराठी",
       "direction": "ltr",
       "sarvam_code": "mr-IN",
       "bcp47": "mr-IN"
+    },
+    {
+      "code": "gu",
+      "label": "Gujarati",
+      "native_label": "ગુજરાતી",
+      "direction": "ltr",
+      "sarvam_code": "gu-IN",
+      "bcp47": "gu-IN"
     }
   ]
 }

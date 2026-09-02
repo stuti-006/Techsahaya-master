@@ -146,16 +146,21 @@ def test_rate_limiting_ai_tier(client):
     url = "/api/chat"
     payload = {"message": "Farmer schemes", "language": "en"}
 
-    # AI tier limit is 10 requests per minute by default
-    for i in range(10):
-        res = client.post(url, json=payload, headers=headers)
-        assert res.status_code == 200, f"Request {i} failed unexpectedly"
+    from app.models.schemas import ChatResponse
+    dummy_resp = ChatResponse(answer="Mock answer", confidence="high", schemes=[], evidence=[], verification_status="verified")
 
-    # 11th request should trigger 429 Too Many Requests
-    blocked_res = client.post(url, json=payload, headers=headers)
-    assert blocked_res.status_code == 429
-    assert "Retry-After" in blocked_res.headers
-    assert "Rate limit exceeded" in blocked_res.json()["detail"]
+    with patch("app.routers.api.chat_service.answer", return_value=dummy_resp), \
+         patch("app.routers.api.sarvam_service.text_to_speech", new_callable=AsyncMock, return_value=b"FAKE_AUDIO"):
+        # AI tier limit is 10 requests per minute by default
+        for i in range(10):
+            res = client.post(url, json=payload, headers=headers)
+            assert res.status_code == 200, f"Request {i} failed unexpectedly"
+
+        # 11th request should trigger 429 Too Many Requests
+        blocked_res = client.post(url, json=payload, headers=headers)
+        assert blocked_res.status_code == 429
+        assert "Retry-After" in blocked_res.headers
+        assert "Rate limit exceeded" in blocked_res.json()["detail"]
 
 
 def test_config_endpoints(client):

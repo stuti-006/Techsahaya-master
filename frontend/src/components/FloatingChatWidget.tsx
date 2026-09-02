@@ -19,7 +19,8 @@ import { useAppContext } from "../context/AppContext";
 import { useTour } from "../context/TourContext";
 import { api } from "../services/api";
 import { t } from "../utils/i18n";
-import { cleanTextForSpeech } from "../utils/speechUtils";
+import { SUPPORTED_LANGUAGES } from "../utils/languages";
+import { cleanTextForSpeech, languageToBCP47, playExclusiveAudio, speakExclusive, stopAllPlayback } from "../utils/speechUtils";
 
 interface Message {
   id: string;
@@ -141,7 +142,7 @@ function FormattedMessageText({ text, isUser }: { text: string; isUser: boolean 
 
 export function FloatingChatWidget() {
 
-  const { language, setLanguage, user } = useAppContext();
+  const { language, setLanguage, user, profile } = useAppContext();
   const { startTour } = useTour();
 
   const [isOpen, setIsOpen] = useState(false);
@@ -149,7 +150,7 @@ export function FloatingChatWidget() {
     {
       id: "welcome",
       sender: "assistant",
-      text: "Namaste! I am Sahaya, your citizen welfare assistant. Ask me anything about government schemes, eligibility criteria, or document preparation in English, Hindi, or Kannada.",
+      text: "Namaste! I am Sahaya, your citizen welfare assistant. Ask me anything about government schemes, eligibility criteria, or document preparation in any of the 9 supported Indian languages.",
       timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
     },
   ]);
@@ -160,8 +161,13 @@ export function FloatingChatWidget() {
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
-  const currentAudioElementRef = useRef<HTMLAudioElement | null>(null);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    return () => {
+      stopAllPlayback();
+    };
+  }, []);
 
   useEffect(() => {
     if (isOpen) {
@@ -206,6 +212,8 @@ export function FloatingChatWidget() {
       };
 
       setMessages((prev) => [...prev, assistantMessage]);
+
+      playAudio(assistantMessage.id, data.audio_base64, data.audio_mime || "audio/wav", data.answer);
     } catch (err: any) {
       const isRateLimit = err?.response?.status === 429;
       const retryAfter = err?.response?.headers?.["retry-after"] || "a few";
@@ -231,30 +239,27 @@ export function FloatingChatWidget() {
 
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const mimeType = MediaRecorder.isTypeSupported("audio/webm;codecs=opus")
-        ? "audio/webm;codecs=opus"
-        : "audio/webm";
-      const mediaRecorder = new MediaRecorder(stream, { mimeType });
+      const mediaRecorder = new MediaRecorder(stream);
       mediaRecorderRef.current = mediaRecorder;
       audioChunksRef.current = [];
 
-      mediaRecorder.ondataavailable = (e) => {
-        if (e.data.size > 0) {
-          audioChunksRef.current.push(e.data);
+      mediaRecorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          audioChunksRef.current.push(event.data);
         }
       };
 
       mediaRecorder.onstop = async () => {
-        const audioBlob = new Blob(audioChunksRef.current, { type: mimeType });
-        stream.getTracks().forEach((track: MediaStreamTrack) => track.stop());
+        const audioBlob = new Blob(audioChunksRef.current, { type: "audio/webm" });
         await handleVoiceUpload(audioBlob);
+        stream.getTracks().forEach((track) => track.stop());
       };
 
       mediaRecorder.start();
       setRecording(true);
     } catch (err) {
       console.error("Microphone access failed", err);
-      alert(t(language, "voicePermissionError"));
+      alert(t(language, "voiceUnavailable"));
     }
   };
 
@@ -267,86 +272,83 @@ export function FloatingChatWidget() {
 
   const handleVoiceUpload = async (audioBlob: Blob) => {
     setLoading(true);
-    const reader = new FileReader();
-    reader.readAsDataURL(audioBlob);
-    reader.onloadend = async () => {
-      const base64Data = (reader.result as string).split(",")[1];
-      try {
-        const res = await api.post("/api/voice-chat", {
-          audio_base64: base64Data,
-          language: language || "en",
-        });
+    const formData = new FormData();
+    formData.append("file", audioBlob, "voice_query.webm");
+    formData.append("language", language || "en");
+    formData.append("profile", JSON.stringify(profile));
 
-        const data = res.data;
-        const transcriptText = data.transcript || "Voice Message";
+    try {
+      const response = await api.post("/api/voice-chat", formData, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
 
-        // Add user transcript
-        const userMsg: Message = {
-          id: `user-voice-${Date.now()}`,
-          sender: "user",
-          text: transcriptText,
-          timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-        };
+      const data = response.data;
+      const userMsg: Message = {
+        id: `user-${Date.now()}`,
+        sender: "user",
+        text: data.transcript || "Voice input",
+        timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+      };
 
-        const asstData = data.response;
-        const asstMsg: Message = {
-          id: `asst-voice-${Date.now()}`,
-          sender: "assistant",
-          text: asstData?.answer || "Processed your voice request.",
-          timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-          evidence: asstData?.evidence,
-          confidence: asstData?.confidence,
-          verificationStatus: asstData?.verification_status,
-          tourId: asstData?.tour_id,
-          suggestedAction: asstData?.suggested_action,
-          audioBase64: data.audio_base64,
-          audioMime: data.audio_mime || "audio/wav",
-        };
+      const asstData = data.response;
+      const asstMsg: Message = {
+        id: `asst-${Date.now()}`,
+        sender: "assistant",
+        text: asstData?.answer || "I received your voice message.",
+        timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+        evidence: asstData?.evidence,
+        confidence: asstData?.confidence,
+        verificationStatus: asstData?.verification_status,
+        tourId: asstData?.tour_id,
+        suggestedAction: asstData?.suggested_action,
+        audioBase64: data.audio_base64,
+        audioMime: data.audio_mime || "audio/wav",
+      };
 
-        setMessages((prev) => [...prev, userMsg, asstMsg]);
-
-        // Auto-play returned Sarvam TTS audio if present
-        if (data.audio_base64) {
-          playAudio(asstMsg.id, data.audio_base64, data.audio_mime || "audio/wav");
-        } else if ("speechSynthesis" in window && asstData?.answer) {
-          // Browser TTS fallback
-          const utterance = new SpeechSynthesisUtterance(cleanTextForSpeech(asstData.answer));
-          utterance.lang = language === "hi" ? "hi-IN" : language === "kn" ? "kn-IN" : "en-IN";
-          window.speechSynthesis.speak(utterance);
-        }
-      } catch (err: any) {
-        console.error("Voice chat error", err);
-        const errorMsg: Message = {
-          id: `err-voice-${Date.now()}`,
-          sender: "assistant",
-          text: "Voice processing failed. Please type your query in the chat box below.",
-          timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-        };
-        setMessages((prev) => [...prev, errorMsg]);
-      } finally {
-        setLoading(false);
-      }
-    };
+      setMessages((prev) => [...prev, userMsg, asstMsg]);
+      playAudio(asstMsg.id, data.audio_base64, data.audio_mime || "audio/wav", asstData?.answer);
+    } catch (err: any) {
+      console.error("Voice chat error", err);
+      const errorMsg: Message = {
+        id: `err-voice-${Date.now()}`,
+        sender: "assistant",
+        text: "Voice processing failed. Please type your query in the chat box below.",
+        timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+      };
+      setMessages((prev) => [...prev, errorMsg]);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const playAudio = (msgId: string, base64Audio: string, mime: string = "audio/wav") => {
-    if (playingAudioId === msgId && currentAudioElementRef.current) {
-      currentAudioElementRef.current.pause();
+  const playAudio = (msgId: string, base64Audio?: string | null, mime: string = "audio/wav", textFallback?: string) => {
+    if (playingAudioId === msgId) {
+      stopAllPlayback();
       setPlayingAudioId(null);
       return;
     }
 
-    if (currentAudioElementRef.current) {
-      currentAudioElementRef.current.pause();
+    if (base64Audio) {
+      const audio = new Audio(`data:${mime};base64,${base64Audio}`);
+      playExclusiveAudio(
+        audio,
+        () => setPlayingAudioId(msgId),
+        () => setPlayingAudioId(null),
+        () => setPlayingAudioId(null)
+      ).catch(() => setPlayingAudioId(null));
+    } else if ("speechSynthesis" in window && textFallback) {
+      const speechText = cleanTextForSpeech(textFallback);
+      if (speechText) {
+        const utterance = new SpeechSynthesisUtterance(speechText);
+        utterance.lang = languageToBCP47(language || "en");
+        speakExclusive(
+          utterance,
+          () => setPlayingAudioId(msgId),
+          () => setPlayingAudioId(null),
+          () => setPlayingAudioId(null)
+        );
+      }
     }
-
-    const audio = new Audio(`data:${mime};base64,${base64Audio}`);
-    currentAudioElementRef.current = audio;
-    setPlayingAudioId(msgId);
-
-    audio.onended = () => setPlayingAudioId(null);
-    audio.onerror = () => setPlayingAudioId(null);
-    audio.play().catch(() => setPlayingAudioId(null));
   };
 
   const triggerTour = (tourId: string) => {
@@ -406,9 +408,11 @@ export function FloatingChatWidget() {
                 onChange={(e) => setLanguage(e.target.value)}
                 className="rounded-lg border border-white/20 bg-emerald-800/80 px-2 py-1 text-xs text-white focus:outline-none"
               >
-                <option value="en">English</option>
-                <option value="hi">हिन्दी</option>
-                <option value="kn">ಕನ್ನಡ</option>
+                {SUPPORTED_LANGUAGES.map((lang) => (
+                  <option key={lang.code} value={lang.code} className="bg-emerald-900 text-white">
+                    {lang.nativeLabel}
+                  </option>
+                ))}
               </select>
               <button
                 type="button"
@@ -437,13 +441,12 @@ export function FloatingChatWidget() {
                 >
                   <FormattedMessageText text={msg.text} isUser={msg.sender === "user"} />
 
-
                   {/* Audio Player Button for Assistant Voice */}
-                  {msg.audioBase64 && msg.sender === "assistant" && (
+                  {msg.sender === "assistant" && msg.text && (
                     <div className="mt-2.5 pt-2 border-t border-stone-100 flex items-center gap-2">
                       <button
                         type="button"
-                        onClick={() => playAudio(msg.id, msg.audioBase64!, msg.audioMime)}
+                        onClick={() => playAudio(msg.id, msg.audioBase64, msg.audioMime, msg.text)}
                         className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700 hover:bg-emerald-100 transition"
                       >
                         {playingAudioId === msg.id ? (

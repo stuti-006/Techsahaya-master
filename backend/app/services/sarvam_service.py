@@ -153,8 +153,8 @@ def clean_text_for_speech(raw_text: str) -> str:
     text = re.sub(r"\s+•\s+", ". ", text)
     text = re.sub(r"(?:^|\n)\s*\d+[.)]\s+", ". ", text)
 
-    # 8. "Label:" -> natural pause ("Label."). Supports Latin + Indic scripts.
-    text = re.sub(r"([A-Za-z0-9\u0900-\u097F\u0C80-\u0CFF][A-Za-z0-9\u0900-\u097F\u0C80-\u0CFF\s]*):", r"\1.", text)
+    # 8. "Label:" -> natural pause ("Label."). Supports Latin + all Indic scripts (\u0900-\u0D7F).
+    text = re.sub(r"([A-Za-z0-9\u0900-\u0D7F][A-Za-z0-9\u0900-\u0D7F\s]*):", r"\1.", text)
 
     # 9. Remove remaining decorative markdown characters and stray backticks.
     text = re.sub(r"[\\#{}[\]()<>~^|=`*_]", " ", text)
@@ -226,7 +226,17 @@ class SarvamVoiceService:
             lang_data = load_languages()
             return {item["code"]: item["sarvam_code"] for item in lang_data.get("languages", [])}
         except Exception:
-            return {"en": "en-IN", "hi": "hi-IN", "kn": "kn-IN", "ta": "ta-IN", "te": "te-IN", "mr": "mr-IN"}
+            return {
+                "en": "en-IN",
+                "hi": "hi-IN",
+                "kn": "kn-IN",
+                "te": "te-IN",
+                "ta": "ta-IN",
+                "ml": "ml-IN",
+                "bn": "bn-IN",
+                "mr": "mr-IN",
+                "gu": "gu-IN",
+            }
 
     def resolve_sarvam_lang(self, code: str | None) -> str:
         if not code:
@@ -293,6 +303,8 @@ class SarvamVoiceService:
                         raise SarvamAPIError("Invalid Sarvam API key or authentication failed", status_code=401)
                     else:
                         logger.warning("Sarvam STT attempt %d failed with status %d: %s", attempt, response.status_code, response.text)
+            except SarvamAPIError:
+                raise
             except (httpx.RequestError, httpx.TimeoutException) as exc:
                 logger.warning("Sarvam STT attempt %d connection error: %s", attempt, exc)
             except Exception as exc:
@@ -337,6 +349,10 @@ class SarvamVoiceService:
         if not cleaned_text:
             raise SarvamAPIError("Text input for TTS cannot be empty after cleaning", status_code=400)
         cleaned_text = cleaned_text[:500]
+        tts_model = current_settings.sarvam_tts_model
+        if tts_model == "bulbul:v2":
+            tts_model = "bulbul:v3"
+
         payload = {
             "inputs": [cleaned_text],
             "target_language_code": target_lang,
@@ -344,7 +360,7 @@ class SarvamVoiceService:
             "pace": speed or 1.0,
             "speech_sample_rate": 8000,
             "enable_preprocessing": True,
-            "model": current_settings.sarvam_tts_model,
+            "model": tts_model,
         }
 
         max_retries = 3
@@ -367,6 +383,8 @@ class SarvamVoiceService:
                         raise SarvamAPIError("Invalid Sarvam API key or authentication failed", status_code=401)
                     else:
                         logger.warning("Sarvam TTS attempt %d failed with status %d: %s", attempt, response.status_code, response.text)
+            except SarvamAPIError:
+                raise
             except (httpx.RequestError, httpx.TimeoutException) as exc:
                 logger.warning("Sarvam TTS attempt %d connection error: %s", attempt, exc)
             except Exception as exc:

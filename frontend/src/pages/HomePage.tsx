@@ -30,7 +30,7 @@ export function HomePage() {
         </div>
       </section>
       <section className="grid gap-4 md:grid-cols-4">
-        <SectionCard title={t(language, "multilingualAccess")}><div className="flex items-start gap-3"><Languages className="text-sahaya-green" /><p className="text-sm text-slate-600">English, Hindi, and Kannada in this round, with room for more Indian languages later.</p></div></SectionCard>
+        <SectionCard title={t(language, "multilingualAccess")}><div className="flex items-start gap-3"><Languages className="text-sahaya-green" /><p className="text-sm text-slate-600">Full support for 9 Indian languages: English, Hindi, Kannada, Telugu, Tamil, Malayalam, Bengali, Marathi, and Gujarati.</p></div></SectionCard>
         <SectionCard title={t(language, "voiceFirst")}><div className="flex items-start gap-3"><Mic className="text-sahaya-green" /><p className="text-sm text-slate-600">Tap and speak about schemes, eligibility, and documents with safe text fallback.</p></div></SectionCard>
         <SectionCard title={t(language, "explainableEligibility")}><div className="flex items-start gap-3"><FileSearch2 className="text-sahaya-green" /><p className="text-sm text-slate-600">Rule-based results explain what matched, what failed, and what to try next.</p></div></SectionCard>
         <SectionCard title={t(language, "privacyArchitecture")}><div className="flex items-start gap-3"><ShieldCheck className="text-sahaya-green" /><p className="text-sm text-slate-600">Consent-first design, masked document metadata, audit logging, and no raw Aadhaar storage.</p></div></SectionCard>

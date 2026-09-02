@@ -173,3 +173,4 @@ def validate_dataset_on_startup() -> bool:
     logger.info(f"[VALIDATION] Dataset validation PASSED: {result['stats']['total_schemes']} schemes, "
                 f"{result['stats']['valid_schemes']} valid")
     return True
+

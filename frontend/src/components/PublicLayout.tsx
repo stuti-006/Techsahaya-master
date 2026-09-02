@@ -2,6 +2,7 @@ import { HandHelping, LockKeyhole, ShieldCheck } from "lucide-react";
 import { Link, NavLink } from "react-router-dom";
 import { useAppContext } from "../context/AppContext";
 import { t, type TranslationKey } from "../utils/i18n";
+import { SUPPORTED_LANGUAGES } from "../utils/languages";
 
 const items: { to: string; labelKey: TranslationKey }[] = [
   { to: "/", labelKey: "home" },
@@ -29,9 +30,11 @@ export function PublicLayout({ children }: { children: React.ReactNode }) {
           </nav>
           <div className="flex items-center gap-3">
             <select aria-label="Language selector" className="min-h-12 rounded-xl border px-3" value={language} onChange={(e) => setLanguage(e.target.value)}>
-              <option value="en">English</option>
-              <option value="hi">Hindi</option>
-              <option value="kn">Kannada</option>
+              {SUPPORTED_LANGUAGES.map((lang) => (
+                <option key={lang.code} value={lang.code}>
+                  {lang.nativeLabel} ({lang.label})
+                </option>
+              ))}
             </select>
             <Link to="/login" className="hidden min-h-12 items-center rounded-xl border px-4 md:inline-flex">{t(language, "login")}</Link>
             <Link to="/signup" className="inline-flex min-h-12 items-center rounded-xl bg-sahaya-green px-4 text-white">{t(language, "getStarted")}</Link>

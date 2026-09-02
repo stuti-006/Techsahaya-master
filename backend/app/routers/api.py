@@ -1,5 +1,6 @@
 import base64
 import logging
+from typing import Optional
 from uuid import uuid4
 
 logger = logging.getLogger("techsahaya.api")
@@ -34,12 +35,13 @@ from app.services.audit_service import audit_service
 from app.services.auth_service import auth_service
 from app.services.chat_service import chat_service
 from app.services.data_loader import load_languages, load_personas, load_rules, load_schemes, load_tours
-from app.services.document_service import document_service
+from app.services.document_service import document_service, REUPLOAD_PROMPTS
 from app.services.eligibility_engine import eligibility_engine
 from app.services.journey_service import journey_service
 from app.services.profile_service import profile_service
 from app.services.recommendation_service import recommendation_service
 from app.services.sarvam_service import SarvamAPIError, sarvam_service
+from app.services.text_normalizer import normalize_for_speech
 
 router = APIRouter(prefix="/api", tags=["api"])
 settings = get_settings()
@@ -86,7 +88,8 @@ async def onboarding_welcome_audio(
     language_key = language[:2].lower()
     message = welcome_messages.get(language_key, welcome_messages["en"])
     try:
-        audio_bytes = await sarvam_service.text_to_speech(message, language_code=language_key)
+        tts_text = normalize_for_speech(message, language_code=language_key)
+        audio_bytes = await sarvam_service.text_to_speech(tts_text, language_code=language_key)
     except SarvamAPIError as err:
         raise HTTPException(status_code=err.status_code, detail=err.message) from err
     return {"audio_base64": base64.b64encode(audio_bytes).decode("utf-8"), "audio_mime": "audio/wav"}
@@ -127,21 +130,22 @@ def consent(payload: ConsentRequest, request: Request, user: User = Depends(get_
 
 
 @router.post("/chat")
-async def chat(payload: ChatRequest, user: User = Depends(get_current_user)):
-    chat_response = chat_service.answer(payload.message, payload.language, payload.profile)
-    if chat_response.schemes and settings.sarvam_api_key and chat_response.answer:
+async def chat(payload: ChatRequest, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    chat_response = chat_service.answer(payload.message, payload.language, payload.profile, user=user, db=db)
+    if settings.sarvam_api_key and chat_response.answer:
         try:
-            audio_bytes = await sarvam_service.text_to_speech(chat_response.answer, language_code=payload.language)
+            tts_text = normalize_for_speech(chat_response.answer, language_code=payload.language)
+            audio_bytes = await sarvam_service.text_to_speech(tts_text, language_code=payload.language)
             chat_response.audio_base64 = base64.b64encode(audio_bytes).decode("utf-8")
             chat_response.audio_mime = "audio/wav"
-        except SarvamAPIError:
-            pass
+        except (SarvamAPIError, Exception) as exc:
+            logger.warning("TTS generation in /chat failed: %s", exc)
     return chat_response
 
 
 
 @router.post("/voice-chat")
-async def voice_chat(payload: VoiceChatRequest, user: User = Depends(get_current_user)):
+async def voice_chat(payload: VoiceChatRequest, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     transcript = payload.transcript or ""
     mode = "sarvam_ai"
 
@@ -166,13 +170,14 @@ async def voice_chat(payload: VoiceChatRequest, user: User = Depends(get_current
         raise HTTPException(status_code=400, detail="Transcript or audio input is required")
 
     # Run RAG chat answering
-    chat_response = chat_service.answer(transcript, payload.language, payload.profile)
+    chat_response = chat_service.answer(transcript, payload.language, payload.profile, user=user, db=db)
 
     # Synthesize audio with Sarvam TTS if enabled
     audio_base64_out: str | None = None
     if settings.sarvam_api_key and chat_response.answer:
         try:
-            audio_bytes_out = await sarvam_service.text_to_speech(chat_response.answer, language_code=payload.language)
+            tts_text = normalize_for_speech(chat_response.answer, language_code=payload.language)
+            audio_bytes_out = await sarvam_service.text_to_speech(tts_text, language_code=payload.language)
             audio_base64_out = base64.b64encode(audio_bytes_out).decode("utf-8")
         except Exception:
             # Degrade gracefully to text if TTS fails
@@ -192,6 +197,7 @@ async def voice_chat_audio(
     file: UploadFile = File(...),
     language: str = Form("en"),
     user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
 ):
 
 
@@ -209,12 +215,13 @@ async def voice_chat_audio(
         logger.exception("Voice audio STT failed unexpectedly: %s", exc)
         raise HTTPException(status_code=500, detail="Voice transcription failed")
 
-    chat_response = chat_service.answer(transcript, language)
+    chat_response = chat_service.answer(transcript, language, user=user, db=db)
 
     audio_base64_out: str | None = None
     if settings.sarvam_api_key and chat_response.answer:
         try:
-            audio_bytes_out = await sarvam_service.text_to_speech(chat_response.answer, language_code=language)
+            tts_text = normalize_for_speech(chat_response.answer, language_code=language)
+            audio_bytes_out = await sarvam_service.text_to_speech(tts_text, language_code=language)
             audio_base64_out = base64.b64encode(audio_bytes_out).decode("utf-8")
         except Exception:
             pass
@@ -240,11 +247,19 @@ def get_tours_config():
 
 
 @router.post("/documents/upload")
-async def upload_document(request: Request, file: UploadFile = File(...), user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+async def upload_document(
+    request: Request,
+    file: UploadFile = File(...),
+    document_type: Optional[str] = Form(None),
+    language: Optional[str] = Form(None),
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
     content = await file.read()
     if len(content) > settings.max_upload_size:
         raise HTTPException(status_code=413, detail="File too large")
-    document = document_service.process_upload(db, user, file, content)
+    selected_language = language or user.preferred_language or "en"
+    document = document_service.process_upload(db, user, file, content, declared_type=document_type, language=selected_language)
     profile = profile_service.get_or_create(db, user)
     existing_documents = profile.available_documents or []
     if document.document_type not in existing_documents:
@@ -252,12 +267,26 @@ async def upload_document(request: Request, file: UploadFile = File(...), user: 
         db.add(profile)
         db.commit()
     audit_service.log(db, "document_uploaded", f"{document.document_type} uploaded", user.id, get_user_role(db, user.id), f"document:{document.id}", request)
+    ephemeral_extracted = getattr(document, "ephemeral_extracted", {})
+    ocr_quality = ephemeral_extracted.get("ocr_quality", "good")
+    ocr_confidence = ephemeral_extracted.get("ocr_confidence_score")
+
+    if ocr_quality == "poor":
+        lang_key = selected_language[:2].lower()
+        reupload_msg = REUPLOAD_PROMPTS.get(lang_key, REUPLOAD_PROMPTS["en"])
+    else:
+        reupload_msg = "Processed in memory and discarded. Only masked metadata is retained in DB; ephemeral OCR cached in Redis with short TTL."
+
     return {
         "status": "processed",
         "document": document.id,
         "document_type": document.document_type,
         "available_documents": profile.available_documents,
-        "message": "Processed in memory and discarded. Only masked metadata is retained.",
+        "ocr_quality": ocr_quality,
+        "ocr_confidence_score": ocr_confidence,
+        "ephemeral_extracted": ephemeral_extracted,
+        "ephemeral_ttl": settings.redis_ephemeral_ttl,
+        "message": reupload_msg,
     }
 
 
@@ -314,12 +343,22 @@ def delete_document(document_id: str, request: Request, user: User = Depends(get
 
 
 @router.post("/check-eligibility")
-def check_eligibility(payload: CheckEligibilityRequest, user: User = Depends(get_current_user)):
+def check_eligibility(payload: CheckEligibilityRequest, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     scheme = next((item for item in load_schemes() if item.id == payload.scheme_id), None)
     if not scheme:
         raise HTTPException(status_code=404, detail="Scheme not found")
     rule = load_rules().get(payload.scheme_id)
-    return eligibility_engine.evaluate(payload.scheme_id, payload.profile, rule, scheme.alternative_scheme_ids)
+    result = eligibility_engine.evaluate(payload.scheme_id, payload.profile, rule, scheme.alternative_scheme_ids)
+
+    db.add(NotificationRecord(
+        user_id=user.id,
+        title=f"Eligibility checked: {scheme.name}",
+        message=(f"You are eligible for {scheme.name}." if result.eligible
+                  else f"You are not eligible for {scheme.name}. Reason: {result.failed[0] if result.failed else 'criteria not met'}."),
+        level="success" if result.eligible else "info",
+    ))
+    db.commit()
+    return result
 
 
 @router.get("/schemes")
@@ -349,6 +388,13 @@ def scheme_details(scheme_id: str):
 def save_scheme(payload: SaveSchemeRequest, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     if db.query(SavedScheme).filter(SavedScheme.user_id == user.id, SavedScheme.scheme_id == payload.scheme_id).first() is None:
         db.add(SavedScheme(user_id=user.id, scheme_id=payload.scheme_id))
+        scheme = next((s for s in load_schemes() if s.id == payload.scheme_id), None)
+        db.add(NotificationRecord(
+            user_id=user.id,
+            title="Scheme saved",
+            message=f"{scheme.name if scheme else payload.scheme_id} was added to your saved schemes.",
+            level="info",
+        ))
         db.commit()
     return {"status": "saved"}
 
@@ -387,7 +433,8 @@ async def eligible_schemes_summary_audio(
     }
     message = messages.get(language_key, messages["en"])
     try:
-        audio_bytes = await sarvam_service.text_to_speech(message, language_code=language_key)
+        tts_text = normalize_for_speech(message, language_code=language_key)
+        audio_bytes = await sarvam_service.text_to_speech(tts_text, language_code=language_key)
     except SarvamAPIError as err:
         logger.warning("Eligible scheme summary TTS unavailable: %s", err.message)
         return {"summary": message, "audio_base64": None, "audio_mime": "audio/wav"}

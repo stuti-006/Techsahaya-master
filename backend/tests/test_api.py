@@ -1,3 +1,4 @@
+from pathlib import Path
 from fastapi.testclient import TestClient
 
 from main import app
@@ -187,15 +188,15 @@ def test_document_upload_rejects_aadhaar_or_pan_names():
     assert "Aadhaar" in response.json()["detail"]
 
 
-def test_student_id_upload_satisfies_nsp_document_rule():
+def test_document_upload_satisfies_nsp_document_rule():
     headers = auth_headers()
     upload = client.post(
         "/api/documents/upload",
         headers=headers,
-        files={"file": ("student-id-card.pdf", b"safe bytes", "application/pdf")},
+        files={"file": ("income-certificate.pdf", b"safe bytes", "application/pdf")},
     )
     assert upload.status_code == 200
-    assert upload.json()["document_type"] == "student_id"
+    assert upload.json()["document_type"] == "income_certificate"
 
     profile = {
         "age": 20,
@@ -222,3 +223,37 @@ def test_admin_rbac():
     assert citizen.status_code == 403
     admin = client.get("/api/admin/dashboard", headers=auth_headers("admin@techsahaya.org", "Admin@12345"))
     assert admin.status_code == 200
+
+
+def test_document_upload_ocr_quality_gate():
+    headers = auth_headers()
+    fixture_path = Path(__file__).parent / "fixtures" / "income_cert_decodesih.png"
+    if fixture_path.exists():
+        with fixture_path.open("rb") as f:
+            content = f.read()
+        res = client.post(
+            "/api/documents/upload",
+            headers=headers,
+            files={"file": ("income_cert.png", content, "image/png")},
+            data={"language": "kn"},
+        )
+        assert res.status_code == 200
+        data = res.json()
+        assert data["ocr_quality"] == "good"
+        assert data["ocr_confidence_score"] >= 55.0
+
+    degraded_path = Path(__file__).parent / "fixtures" / "degraded_skewed_creased_cert.png"
+    if degraded_path.exists():
+        with degraded_path.open("rb") as f:
+            content = f.read()
+        res = client.post(
+            "/api/documents/upload",
+            headers=headers,
+            files={"file": ("degraded.png", content, "image/png")},
+            data={"language": "kn"},
+        )
+        assert res.status_code == 200
+        data = res.json()
+        assert data["ocr_quality"] == "poor"
+        assert "ಮರು-ಅಪ್‌ಲೋಡ್" in data["message"] or "ಸ್ಪಷ್ಟವಾದ" in data["message"]
+
