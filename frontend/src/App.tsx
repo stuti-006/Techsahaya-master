@@ -53,6 +53,7 @@ export default function App() {
             : <LanguagePickerPage />
         }
       />
+      <Route path="/language" element={<LanguagePickerPage />} />
       <Route path="/home" element={<PublicLayout><HomePage /></PublicLayout>} />
       <Route path="/how-it-works" element={<PublicLayout><HowItWorksPage /></PublicLayout>} />
       <Route path="/schemes" element={<PublicLayout><SchemesPage /></PublicLayout>} />

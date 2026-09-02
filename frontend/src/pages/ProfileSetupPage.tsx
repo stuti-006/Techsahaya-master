@@ -1,111 +1,75 @@
-import { useEffect, useRef, useState } from "react";
-import { Volume2 } from "lucide-react";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { ProfileForm } from "../components/ProfileForm";
+import { EmojiSpreeChips, type InterestItem } from "../components/ui/EmojiSpreeChips";
 import { api } from "../services/api";
 import { useAppContext } from "../context/AppContext";
-import { t } from "../utils/i18n";
-import { SUPPORTED_LANGUAGES } from "../utils/languages";
-import { hasActivePlayback, playExclusiveAudio, stopAllPlayback } from "../utils/speechUtils";
+
+const CITIZEN_INTERESTS: InterestItem[] = [
+  { id: "farmer", label: "Farmer", emoji: "🌾" },
+  { id: "student", label: "Student", emoji: "🎓" },
+  { id: "women", label: "Women welfare", emoji: "👩" },
+  { id: "worker", label: "Worker", emoji: "🏗️" },
+  { id: "senior", label: "Senior citizen", emoji: "🧓" },
+  { id: "disability", label: "Disability support", emoji: "♿" },
+  { id: "housing", label: "Housing", emoji: "🏠" },
+  { id: "health", label: "Health schemes", emoji: "🏥" },
+  { id: "family", label: "Family welfare", emoji: "👨‍👩‍👧" },
+  { id: "business", label: "Small business", emoji: "🏪" },
+  { id: "tribal", label: "Tribal welfare", emoji: "🌿" },
+  { id: "bpl", label: "BPL / Low income", emoji: "💸" },
+];
 
 export function ProfileSetupPage() {
-  const { profile, setProfile, language, setLanguage, user } = useAppContext();
+  const { profile, setProfile, language } = useAppContext();
   const navigate = useNavigate();
-  const [audio, setAudio] = useState<{ base64: string; mime: string } | null>(null);
-  const [audioError, setAudioError] = useState(false);
-  const audioRef = useRef<HTMLAudioElement | null>(null);
-  const welcomeAudioRequested = useRef(false);
-  const welcomeAudioPlayStarted = useRef(false);
-  const welcomeAudioSessionKey = `tech-sahaya-welcome-audio:${user?.id || "unknown"}`;
-
-  useEffect(() => {
-    return () => {
-      stopAllPlayback();
-    };
-  }, []);
-
-  useEffect(() => {
-    let isMounted = true;
-    if (welcomeAudioRequested.current || sessionStorage.getItem(welcomeAudioSessionKey) === "played") return;
-    welcomeAudioRequested.current = true;
-    api.post("/api/onboarding/welcome-audio", null, { params: { language } })
-      .then((response) => {
-        if (!isMounted) return;
-        const nextAudio = { base64: response.data.audio_base64, mime: response.data.audio_mime || "audio/wav" };
-        setAudio(nextAudio);
-        if (!hasActivePlayback() && nextAudio.base64) {
-          const player = new Audio(`data:${nextAudio.mime};base64,${nextAudio.base64}`);
-          audioRef.current = player;
-          welcomeAudioPlayStarted.current = true;
-          playExclusiveAudio(
-            player,
-            () => {
-              sessionStorage.setItem(welcomeAudioSessionKey, "played");
-              if (isMounted) setAudioError(false);
-            },
-            () => { welcomeAudioPlayStarted.current = false; },
-            () => {
-              welcomeAudioPlayStarted.current = false;
-              if (isMounted) setAudioError(true);
-            }
-          ).catch(() => {
-            welcomeAudioPlayStarted.current = false;
-            if (isMounted) setAudioError(true);
-          });
-        } else if (hasActivePlayback()) {
-          if (isMounted) setAudioError(true);
-        }
-      })
-      .catch(() => {
-        if (isMounted) setAudioError(true);
-      });
-
-    return () => {
-      isMounted = false;
-    };
-  }, [language, welcomeAudioSessionKey]);
-
-  const playWelcome = () => {
-    if (!audio) return;
-    welcomeAudioPlayStarted.current = true;
-    const player = new Audio(`data:${audio.mime};base64,${audio.base64}`);
-    audioRef.current = player;
-    setAudioError(false);
-    playExclusiveAudio(
-      player,
-      () => setAudioError(false),
-      () => { welcomeAudioPlayStarted.current = false; },
-      () => {
-        welcomeAudioPlayStarted.current = false;
-        setAudioError(true);
-      }
-    ).catch(() => {
-      welcomeAudioPlayStarted.current = false;
-      setAudioError(true);
-    });
-  };
+  const [selectedInterests, setSelectedInterests] = useState<string[]>([]);
 
   return (
     <div className="rounded-3xl bg-white p-6 shadow-card">
-      <h1 className="text-3xl font-bold">{t(language, "welcomeTitle")}</h1>
-      <p className="mt-2 text-slate-600">{t(language, "welcomeSubtitle")}</p>
-      <div className="mt-4 flex flex-wrap items-center gap-3">
-        <label className="text-sm font-semibold" htmlFor="onboarding-language">{t(language, "preferredLanguage")}</label>
-        <select id="onboarding-language" className="min-h-12 rounded-xl border p-3" value={language} onChange={(e) => setLanguage(e.target.value)}>
-          {SUPPORTED_LANGUAGES.map((lang) => (
-            <option key={lang.code} value={lang.code}>
-              {lang.nativeLabel} ({lang.label})
-            </option>
-          ))}
-        </select>
-        {audio && audioError && <button type="button" onClick={playWelcome} className="inline-flex min-h-12 items-center gap-2 rounded-xl border px-4 font-semibold text-sahaya-green"><Volume2 size={18} /> {t(language, "playWelcome")}</button>}
+      <h1 className="text-3xl font-bold">
+        {language === "hi" ? "प्रोफ़ाइल सेटअप" : language === "kn" ? "ಪ್ರೊಫೈಲ್ ಸೆಟಪ್" : "Profile Setup"}
+      </h1>
+      <p className="mt-2 text-slate-600">
+        {language === "hi"
+          ? "पात्रता और सुझावों के लिए केवल आवश्यक जानकारी भरें।"
+          : language === "kn"
+          ? "ಅರ್ಹತೆ ಮತ್ತು ಶಿಫಾರಸುಗಳಿಗಾಗಿ ಅಗತ್ಯ ಮಾಹಿತಿಯನ್ನು ಮಾತ್ರ ತುಂಬಿ."
+          : "Complete only the information needed for eligibility and recommendations."}
+      </p>
+
+      {/* Interest chips */}
+      <div className="mt-6 rounded-2xl border border-slate-100 bg-stone-50 p-4">
+        <p className="mb-1 text-sm font-bold text-sahaya-green">
+          {language === "hi" ? "आप किस क्षेत्र में लाभ खोज रहे हैं?" : language === "kn" ? "ನೀವು ಯಾವ ಕ್ಷೇತ್ರದಲ್ಲಿ ಲಾಭ ಹುಡುಕುತ್ತಿದ್ದೀರಿ?" : "What areas are you looking for benefits in?"}
+        </p>
+        <p className="mb-4 text-xs text-slate-500">
+          {language === "hi" ? "जितने चाहें उतने चुनें — drag करके और देखें" : language === "kn" ? "ಬೇಕಾದಷ್ಟು ಆಯ್ಕೆ ಮಾಡಿ — ಎಳೆದು ಹೆಚ್ಚು ನೋಡಿ" : "Pick as many as you like — drag to see more"}
+        </p>
+        <EmojiSpreeChips
+          interests={CITIZEN_INTERESTS}
+          selected={selectedInterests}
+          onChange={setSelectedInterests}
+        />
       </div>
+
       <div className="mt-6">
-        <ProfileForm initialValue={profile} submitLabel={t(language, "saveAndContinue")} onSubmit={async (nextProfile) => {
-          const response = await api.put("/api/profile", { ...nextProfile, preferred_language: language, consent_given: true });
-          setProfile({ ...nextProfile, onboarding_completed: response.data.onboarding_completed });
-          navigate("/dashboard");
-        }} />
+        <ProfileForm
+          initialValue={profile}
+          submitLabel={
+            language === "hi" ? "सेव करें और आगे बढ़ें" : language === "kn" ? "ಉಳಿಸಿ ಮತ್ತು ಮುಂದುವರಿಯಿರಿ" : "Save and continue"
+          }
+          onSubmit={async (nextProfile) => {
+            setProfile(nextProfile);
+            await api.put("/api/profile", {
+              ...nextProfile,
+              preferred_language: language,
+              consent_given: true,
+              interests: selectedInterests,
+            });
+            navigate("/dashboard");
+          }}
+        />
       </div>
     </div>
   );

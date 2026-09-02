@@ -1,8 +1,9 @@
-import { Bell, ChevronsLeft, ChevronsRight, CircleUser, Files, GitCompareArrows, HandHelping, LayoutDashboard, LogOut, Menu, MessageSquareText, Network, Search, ShieldCheck, UserCog, Users, WalletCards, X } from "lucide-react";
+import { Bell, ChevronsLeft, ChevronsRight, CircleUser, Files, GitCompareArrows, Globe, HandHelping, LayoutDashboard, LogOut, Menu, MessageSquareText, Network, Search, ShieldCheck, UserCog, Users, WalletCards, X } from "lucide-react";
 import { useState } from "react";
 import { Link, NavLink } from "react-router-dom";
 import { useAppContext } from "../context/AppContext";
 import { t, type TranslationKey } from "../utils/i18n";
+import { SUPPORTED_LANGUAGES } from "../utils/languages";
 import { FloatingChatWidget } from "./FloatingChatWidget";
 import { SpotlightOverlay } from "./SpotlightOverlay";
 import { TechSahayaLogo } from "./TechSahayaLogo";
@@ -98,11 +99,26 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <Link to="/dashboard" className="flex items-center">
             <TechSahayaLogo size={32} glowing={true} />
           </Link>
-          <div className="flex items-center gap-2 md:gap-3">
-            <select aria-label={t(language, "chooseLanguage")} className="min-h-12 rounded-xl border px-3 text-sm" value={language} onChange={(e) => setLanguage(e.target.value)}>
-              <option value="en">English</option>
-              <option value="hi">Hindi</option>
-              <option value="kn">Kannada</option>
+          <div className="flex items-center gap-1.5 md:gap-3">
+            <Link
+              to="/language"
+              title="Full Language Selection Screen"
+              className="flex h-10 w-10 sm:h-12 sm:w-12 items-center justify-center rounded-xl border border-slate-200 bg-white text-[#1A3D2E] hover:bg-stone-50 transition"
+              aria-label="Language selection screen"
+            >
+              <Globe size={18} />
+            </Link>
+            <select
+              aria-label={t(language, "chooseLanguage")}
+              className="h-10 sm:h-12 rounded-xl border border-slate-200 bg-white px-2.5 sm:px-3 text-xs sm:text-sm font-semibold text-slate-700 focus:border-[#1A3D2E] focus:outline-none"
+              value={language}
+              onChange={(e) => setLanguage(e.target.value)}
+            >
+              {SUPPORTED_LANGUAGES.map((lang) => (
+                <option key={lang.code} value={lang.code}>
+                  {lang.nativeLabel} ({lang.code.toUpperCase()})
+                </option>
+              ))}
             </select>
             <Link to="/notifications" aria-label={t(language, "openNotifications")} className="relative hidden min-h-12 items-center rounded-xl border px-3 text-sm sm:inline-flex">
               <Bell size={16} />

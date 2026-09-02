@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { FileCheck2, FileText, RefreshCcw, ShieldCheck, UploadCloud } from "lucide-react";
+import { DotmHex4, DotMatrixLoaderModal } from "../components/ui/DotmHex4";
 import { useAppContext } from "../context/AppContext";
 import { api } from "../services/api";
 import { t } from "../utils/i18n";
@@ -7,153 +8,75 @@ import { getLocalizedDocumentName } from "../utils/schemeLocalization";
 
 const commonDocuments = [
   {
-    documentType: "income_certificate",
-    name: {
-      en: "Income certificate",
-      hi: "आय प्रमाण पत्र",
-      kn: "ಆದಾಯ ಪ್ರಮಾಣಪತ್ರ",
-      te: "ఆదాయ ధృవీకరణ పత్రం",
-      ta: "வருமானச் சான்றிதழ்",
-      ml: "വരുമാന സർട്ടിഫിക്കറ്റ്",
-      bn: "আয় শংসাপত্র",
-      mr: "उत्पन्नाचा दाखला",
-      gu: "આવકનો દાખલો"
-    },
+    documentType: "ration_card",
+    name: { en: "Ration card", hi: "राशन कार्ड", kn: "ರೇಷನ್ ಕಾರ್ಡ್" },
     usedFor: {
-      en: "Scholarship, housing, fee waiver, and welfare income threshold checks",
-      hi: "छात्रवृत्ति, आवास, शुल्क छूट और कम आय कल्याण पात्रता सत्यापन",
-      kn: "ವಿದ್ಯಾರ್ಥಿವೇತನ, ವಸತಿ, ಶುಲ್ಕ ವಿನಾಯಿತಿ ಮತ್ತು ಕಲ್ಯಾಣ ಯೋಜನೆಗಳ ಆದಾಯ ಪರಿಶೀಲನೆ",
-      te: "స్కాలర్‌షిప్, గృహనిర్మాణం మరియు సంక్షేమ పథకాల ఆదాయ అర్హత నిర్ధారణ",
-      ta: "கல்வி உதவித்தொகை, வீட்டுவசதி மற்றும் நலத்திட்ட வருமான சரிபார்ப்பு",
-      ml: "സ്കോളർഷിപ്പ്, ഭവന നിർമ്മാണം, ക്ഷേമ പദ്ധതി വരുമാന പരിശോധന",
-      bn: "বৃত্তি, আবাসন এবং কল্যাণ প্রকল্পের আয়ের যোগ্যতা যাচাই",
-      mr: "शिष्यवृत्ती, घरकुल आणि कल्याणकारी योजनांसाठी उत्पन्न पडताळणी",
-      gu: "શિષ્યવૃત્તિ, આવાસ અને કલ્યાણકારી યોજનાઓ માટે આવક ચકાસણી"
+      en: "Household income, family, food security and health-benefit checks",
+      hi: "पारिवारिक आय, भोजन सुरक्षा और स्वास्थ्य लाभ की जांच के लिए",
+      kn: "ಕುಟುಂಬದ ಆದಾಯ, ಆಹಾರ ಭದ್ರತೆ ಮತ್ತು ಆರೋಗ್ಯ ಸೌಲಭ್ಯ ಪರಿಶೀಲನೆಗಾಗಿ",
+    },
+  },
+  {
+    documentType: "income_certificate",
+    name: { en: "Income certificate", hi: "आय प्रमाण पत्र", kn: "ಆದಾಯ ಪ್ರಮಾಣಪತ್ರ" },
+    usedFor: {
+      en: "Scholarship, housing, LPG and low-income welfare checks",
+      hi: "छात्रवृत्ति, आवास, एलपीजी और कम आय कल्याण की जांच के लिए",
+      kn: "ವಿದ್ಯಾರ್ಥಿವೇತನ, ವಸತಿ ಮತ್ತು ಬಡತನ ರೇಖೆಯ ಸೌಲಭ್ಯ ಪರಿಶೀಲನೆಗಾಗಿ",
     },
   },
   {
     documentType: "land_record",
-    name: {
-      en: "Land record",
-      hi: "भूमि रिकॉर्ड (RTC / खतौनी)",
-      kn: "ಭೂ ದಾಖಲೆ (ಪಹಣಿ / RTC)",
-      te: "భూమి రికార్డు (RTC / పట్టా)",
-      ta: "நில ஆவணம் (பட்டா / சிட்டா)",
-      ml: "ഭൂമി രേഖ (RTC / തണ്ടപ്പೇര്)",
-      bn: "জমির রেকর্ড (খতিয়ান / RTC)",
-      mr: "जमीन महसूल नोंद (७/१२ उतारा)",
-      gu: "જમીન દસ્તાવેજ (૭/૧૨ / RTC)"
-    },
+    name: { en: "Land record", hi: "भूमि रिकॉर्ड (RTC)", kn: "ಭೂ ದಾಖಲೆ (ಪಹಣಿ/RTC)" },
     usedFor: {
-      en: "Farmer subsidies, agriculture inputs, crop insurance, and land ownership checks",
-      hi: "किसान सब्सिडी, कृषि इनपुट, फसल बीमा और भूमि स्वामित्व सत्यापन",
-      kn: "ರೈತ ಸಬ್ಸಿಡಿ, ಕೃಷಿ ಸಲಕರಣೆ, ಬೆಳೆ ವಿಮೆ ಮತ್ತು ಭೂ ಮಾಲೀಕತ್ವ ಪರಿಶೀಲನೆ",
-      te: "రైతు రాయితీలు, వ్యవసాయ పథకాలు, పంట బీమా మరియు భూ యాజమాన్య నిర్ధారణ",
-      ta: "விவசாய மானியங்கள், பயிர் காப்பீடு மற்றும் நில உரிமை சரிபார்ப்பு",
-      ml: "കർഷക സബ്‌സിഡി, കൃഷി ആനുകൂല്യങ്ങൾ, വിള ഇൻഷുറൻസ് പരിശോധന",
-      bn: "কৃষক ভর্তুকি, ফসল বীমা এবং জমির মালিকানা যাচাই",
-      mr: "शेतकरी सबसिडी, पीक विमा आणि जमीन मालकी पडताळणी",
-      gu: "ખેડૂત સબસિડી, પાક વીમો અને જમીનની માલિકી ચકાસણી"
+      en: "Farmer and agriculture benefit checks",
+      hi: "किसान और कृषि संबंधी योजनाओं की जांच के लिए",
+      kn: "ರೈತ ಮತ್ತು ಕೃಷಿ ಯೋಜನೆಗಳ ಅರ್ಹತೆ ಪರಿಶೀಲನೆಗಾಗಿ",
     },
   },
   {
-    documentType: "ration_card",
-    name: {
-      en: "Ration card",
-      hi: "राशन कार्ड",
-      kn: "ರೇಷನ್ ಕಾರ್ಡ್",
-      te: "రేషన్ కార్డు",
-      ta: "ரேஷன் கார்டு",
-      ml: "റേഷൻ കാർഡ്",
-      bn: "রেশন কার্ড",
-      mr: "रेशन कार्ड",
-      gu: "રેશન કાર્ડ"
-    },
+    documentType: "bank_account_proof",
+    name: { en: "Bank account proof", hi: "बैंक खाता प्रमाण", kn: "ಬ್ಯಾಂಕ್ ಖಾತೆ ಪುರಾವೆ" },
     usedFor: {
-      en: "Food security, subsidized grains, family structure, and BPL/AAY health benefit checks",
-      hi: "खाद्य सुरक्षा, रियायती राशन, परिवार विवरण और बीपीएल/अंत्योदय स्वास्थ्य लाभ",
-      kn: "ಆಹಾರ ಭದ್ರತೆ, ರಿಯಾಯಿತಿ ಪಡಿತರ, ಕುಟುಂಬದ ವಿವರ ಮತ್ತು ಬಿಪಿಎಲ್ ಸೌಲಭ್ಯ ಪರಿಶೀಲನೆ",
-      te: "ఆహార భద్రత, సబ్సిడీ రేషన్, కుటుంబ వివరాలు మరియు BPL ఆరోగ్య ప్రయోజనాలు",
-      ta: "உணவுப் பாதுகாப்பு, மானிய விலை ரேஷன் மற்றும் குடும்ப நலத்திட்ட சரிபார்ப்பு",
-      ml: "ഭക്ഷ്യസുരക്ഷ, സബ്‌സിഡി റേഷൻ, ബിപിഎൽ ആരോഗ്യ ആനുകൂല്യ പരിശോധന",
-      bn: "খাদ্য সুরক্ষা, ভর্তুকিযুক্ত রেশন এবং বিপিএল স্বাস্থ্য সুবিধা যাচাই",
-      mr: "अन्न सुरक्षा, अनुदानित धान्य, कौटुंबिक तपशील आणि दारिद्र्यरेषेखालील लाभ",
-      gu: "અન્ન સુરક્ષા, સબસિડીયુક્ત અનાજ અને બીપીએલ સ્વાસ્થ્ય લાભ ચકાસણી"
+      en: "Benefit transfer readiness",
+      hi: "प्रत्यक्ष लाभ अंतरण (DBT) की तैयारी के लिए",
+      kn: "ನೇರ ಹಣ ವರ್ಗಾವಣೆ (DBT) ಸಿದ್ಧತೆಗಾಗಿ",
+    },
+  },
+  {
+    documentType: "residence_proof",
+    name: { en: "Residence proof", hi: "निवास प्रमाण पत्र", kn: "ವಾಸಸ್ಥಳ ಪುರಾವೆ" },
+    usedFor: {
+      en: "State and district applicability checks",
+      hi: "राज्य और जिला पात्रता की जांच के लिए",
+      kn: "ರಾಜ್ಯ ಮತ್ತು ಜಿಲ್ಲಾ ಅರ್ಹತೆ ಪರಿಶೀಲನೆಗಾಗಿ",
     },
   },
   {
     documentType: "disability_certificate",
-    name: {
-      en: "Disability certificate",
-      hi: "दिव्यांगता प्रमाण पत्र (UDID)",
-      kn: "ಅಂಗವಿಕಲತೆಯ ಪ್ರಮಾಣಪತ್ರ (UDID)",
-      te: "దివ్యాంగ ధృవీకరణ పత్రం (UDID)",
-      ta: "மாற்றுத்திறனாளி சான்றிதழ் (UDID)",
-      ml: "ഭിന്നശേഷി സർട്ടിഫിക്കറ്റ് (UDID)",
-      bn: "প্রতিবন্ধকতা শংসাপত্র (UDID)",
-      mr: "दिव्यांगत्व प्रमाणपत्र (UDID)",
-      gu: "દિવ્યાંગતા પ્રમાણપત્ર (UDID)"
-    },
+    name: { en: "Disability certificate", hi: "दिव्यांगता प्रमाण पत्र", kn: "ಅಂಗವಿಕಲತೆಯ ಪ್ರಮಾಣಪತ್ರ" },
     usedFor: {
-      en: "Disability pensions, assistive devices, mobility aids, and reservation/quota benefits",
-      hi: "दिव्यांग पेंशन, सहायक उपकरण, गतिशीलता सहायता और आरक्षण लाभ",
-      kn: "ವಿಕಲಚೇತನರ ಪಿಂಚಣಿ, ಸಹಾಯಕ ಉಪಕರಣಗಳು ಮತ್ತು ಮೀಸಲಾತಿ ಸೌಲಭ್ಯ ಪರಿಶೀಲನೆ",
-      te: "దివ్యాంగుల పింఛను, సహాయక ఉపకరణాలు మరియు ప్రత్యేక రాయితీలు",
-      ta: "மாற்றுத்திறனாளி ஓய்வூதியம், உதவி உபகரணங்கள் மற்றும் சிறப்பு சலுகைகள்",
-      ml: "ഭിന്നശേഷി പെൻഷൻ, സഹായക ഉപകരണങ്ങൾ, പ്രത്യേക ആനുകൂല്യങ്ങൾ",
-      bn: "প্রতিবন্ধী পেনশন, সহায়ক সরঞ্জাম এবং বিশেষ সুযোগ-সুবিধা যাচাই",
-      mr: "दिव्यांग पेन्शन, सहाय्यक उपकरणे आणि विशेष सवलती पडताळणी",
-      gu: "દિવ્યાંગ પેન્શન, સહાયક સાધનો અને વિશેષ લાભ ચકાસણી"
+      en: "Disability support and priority access checks",
+      hi: "दिव्यांगता सहायता और प्राथमिकता पहुँच की जांच के लिए",
+      kn: "ಅಂಗವಿಕಲರ ನೆರವು ಮತ್ತು ಆದ್ಯತೆಯ ಸೌಲಭ್ಯ ಪರಿಶೀಲನೆಗಾಗಿ",
     },
   },
   {
-    documentType: "caste_certificate",
-    name: {
-      en: "Caste certificate",
-      hi: "जाति प्रमाण पत्र",
-      kn: "ಜಾತಿ ಪ್ರಮಾಣಪತ್ರ",
-      te: "కుల ధృవీకరణ పత్రం",
-      ta: "சாதிச் சான்றிதழ்",
-      ml: "ജാതി സർട്ടിഫിക്കറ്റ്",
-      bn: "জাতিগত শংসাপত্র",
-      mr: "जात प्रमाणपत्र",
-      gu: "જાતિનું પ્રમાણપત્ર"
-    },
+    documentType: "student_id",
+    name: { en: "Student ID", hi: "छात्र पहचान पत्र", kn: "ವಿದ್ಯಾರ್ಥಿ ಐಡಿ ಕಾರ್ಡ್" },
     usedFor: {
-      en: "Category-specific welfare (SC/ST/OBC/Minority), education fee concessions, and hostel quotas",
-      hi: "वर्ग-विशिष्ट कल्याण (SC/ST/OBC/अल्पसंख्यक), शिक्षण शुल्क छूट और छात्रावास कोटा",
-      kn: "ವರ್ಗ-ಆಧಾರಿತ ಕಲ್ಯಾಣ (SC/ST/OBC/ಅಲ್ಪಸಂಖ್ಯಾತ), ಶುಲ್ಕ ವಿನಾಯಿತಿ ಮತ್ತು ವಸತಿ ನಿಲಯ ಸೌಲಭ್ಯ",
-      te: "వర్గ సంక్షేమ పథకాలు (SC/ST/OBC/మైనారిటీ), ఫీజు రాయితీలు మరియు హాస్టల్ సీట్లు",
-      ta: "பிரிவு சார்ந்த நலத்திட்டங்கள் (SC/ST/OBC), கல்விக் கட்டணச் சலுகை மற்றும் விடுதி வசதி",
-      ml: "വിഭാഗാധിഷ്ഠിത ക്ഷേമം (SC/ST/OBC), ഫീസ് ഇളവുകൾ, ഹോസ്റ്റൽ ആനുകൂല്യങ്ങൾ",
-      bn: "শ্রেণিভিত্তিক কল্যাণ (SC/ST/OBC/সংখ্যালঘু), ফি ছাড় এবং হোস্টেল সুবিধা",
-      mr: "प्रवर्गनिहाय कल्याण (SC/ST/OBC/अल्पसंख्याक), शैक्षणिक शुल्क सवलत आणि वसतिगृह कोटा",
-      gu: "વર્ગ આધારિત કલ્યાણ (SC/ST/OBC/લઘુમતી), ફી માફી અને હોસ્ટેલ લાભ"
+      en: "Scholarship and education schemes",
+      hi: "छात्रवृत्ति और शिक्षा संबंधी योजनाओं के लिए",
+      kn: "ವಿದ್ಯಾರ್ಥಿವೇತನ ಮತ್ತು ಶಿಕ್ಷಣ ಯೋಜನೆಗಳಿಗಾಗಿ",
     },
   },
   {
-    documentType: "generic_sample_document",
-    name: {
-      en: "Generic sample document",
-      hi: "सामान्य नमूना दस्तावेज़",
-      kn: "ಸಾಮಾನ್ಯ ಮಾದರಿ ದಾಖಲೆ",
-      te: "సాధారణ నమూనా పత్రం",
-      ta: "மாதிரி பொது ஆவணம்",
-      ml: "സാധാരണ മാതൃകാ രേഖ",
-      bn: "সাধারণ নমুনা নথি",
-      mr: "सर्वसाधारण नमुना दस्तऐवज",
-      gu: "સામાન્ય નમૂના દસ્તાવેજ"
-    },
+    documentType: "birth_certificate",
+    name: { en: "Birth certificate", hi: "जन्म प्रमाण पत्र", kn: "ಜನನ ಪ್ರಮಾಣಪತ್ರ" },
     usedFor: {
-      en: "General supporting proof, sample official forms, or applicant self-attestation copies",
-      hi: "सामान्य सहायक प्रमाण, आधिकारिक आवेदन पत्र या स्व-प्रमाणित प्रतियां",
-      kn: "ಸಾಮಾನ್ಯ ಪೂರಕ ಪುರಾವೆ, ಅರ್ಜಿ ಮಾದರಿ ಅಥವಾ ಸ್ವಯಂ ಘೋಷಿತ ದಾಖಲೆಗಳು",
-      te: "సాధారణ సహాయక పత్రం, దరఖాస్తు నమూనా లేదా స్వయం ధృవీకరణ పత్రాలు",
-      ta: "பொது துணை ஆவணம், மாதிரி விண்ணப்பப் படிவம் அல்லது சுய சான்றொப்ப நகல்",
-      ml: "പൊതു അനുബന്ധ രേഖ, അപേക്ഷാ മാതൃക അല്ലെങ്കിൽ സ്വയം സാക്ഷ്യപ്പെടുത്തിയ പകർപ്പ്",
-      bn: "সাধারণ সহায়ক প্রমাণ, নমুনা আবেদনপত্র বা স্ব-প্রত্যয়িত কপি",
-      mr: "सर्वसाधारण पूरक पुरावा, नमुना अर्ज किंवा स्व-स्वाक्षरी केलेली प्रत",
-      gu: "સામાન્ય સહાયક પુરાવો, અરજીનો નમૂનો અથવા સ્વ-પ્રમાણિત નકલ"
+      en: "Age, child and girl-child scheme checks",
+      hi: "आयु और बालिका सुरक्षा योजनाओं की जांच के लिए",
+      kn: "ವಯಸ್ಸು ಮತ್ತು ಹೆಣ್ಣು ಮಗುವಿನ ಯೋಜನೆಗಳ ಪರಿಶೀಲನೆಗಾಗಿ",
     },
   },
 ];
@@ -163,6 +86,7 @@ export function DocumentsPage() {
   const [documents, setDocuments] = useState<any[]>([]);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const [uploading, setUploading] = useState(false);
 
   const load = async () => {
     const res = await api.get("/api/documents");
@@ -173,7 +97,7 @@ export function DocumentsPage() {
     load().catch(() => setDocuments([]));
   }, []);
 
-  const langKey = (language || "en").toLowerCase();
+  const langKey = language === "hi" ? "hi" : language === "kn" ? "kn" : "en";
 
   return (
     <div className="space-y-5">
@@ -196,22 +120,16 @@ export function DocumentsPage() {
         <div className="rounded-3xl bg-white p-5 shadow-card">
           <h2 className="mb-4 text-lg font-semibold">{t(language, "commonDocuments")}</h2>
           <div className="grid gap-3 md:grid-cols-2">
-            {commonDocuments.map((item) => {
-              const nameMap = item.name as Record<string, string>;
-              const usedForMap = item.usedFor as Record<string, string>;
-              const localizedName = nameMap[langKey] || nameMap.en;
-              const localizedUsedFor = usedForMap[langKey] || usedForMap.en;
-              return (
-                <div key={item.documentType} className="rounded-2xl border p-4">
-                  <div className="flex items-center gap-2 font-semibold">
-                    <FileCheck2 className="text-sahaya-green" size={18} /> {localizedName}
-                  </div>
-                  <p className="mt-2 text-sm text-slate-600">
-                    <span className="font-semibold">{t(language, "usedFor")}:</span> {localizedUsedFor}
-                  </p>
+            {commonDocuments.map((item) => (
+              <div key={item.documentType} className="rounded-2xl border p-4">
+                <div className="flex items-center gap-2 font-semibold">
+                  <FileCheck2 className="text-sahaya-green" size={18} /> {item.name[langKey]}
                 </div>
-              );
-            })}
+                <p className="mt-2 text-sm text-slate-600">
+                  <span className="font-semibold">{t(language, "usedFor")}:</span> {item.usedFor[langKey]}
+                </p>
+              </div>
+            ))}
           </div>
         </div>
 
@@ -223,7 +141,6 @@ export function DocumentsPage() {
             onSubmit={async (e) => {
               e.preventDefault();
               const input = document.getElementById("upload") as HTMLInputElement;
-              const select = document.getElementById("doc-type") as HTMLSelectElement;
               const file = input.files?.[0];
               if (!file) return;
               if (/aadhaar|aadhar|pan/i.test(file.name)) {
@@ -238,18 +155,21 @@ export function DocumentsPage() {
                 setError(t(language, "documentTooLarge"));
                 return;
               }
-              const form = new FormData();
-              form.append("file", file);
-              if (select?.value) {
-                form.append("document_type", select.value);
+              try {
+                setUploading(true);
+                const form = new FormData();
+                form.append("file", file);
+                const res = await api.post("/api/documents/upload", form);
+                setMessage(res.data.message);
+                setProfile({ ...profile, available_documents: res.data.available_documents || profile.available_documents });
+                setError("");
+                input.value = "";
+                await load();
+              } catch {
+                setError("Failed to upload document. Please try again.");
+              } finally {
+                setUploading(false);
               }
-              form.append("language", language || "en");
-              const res = await api.post("/api/documents/upload", form);
-              setMessage(res.data.message);
-              setProfile({ ...profile, available_documents: res.data.available_documents || profile.available_documents });
-              setError("");
-              input.value = "";
-              await load();
             }}
           >
             <div className="grid gap-1 text-sm font-semibold">
@@ -260,15 +180,11 @@ export function DocumentsPage() {
                 className="min-h-12 rounded-xl border p-3 font-normal text-slate-700 bg-white"
                 defaultValue="income_certificate"
               >
-                {commonDocuments.map((item) => {
-                  const nameMap = item.name as Record<string, string>;
-                  const localizedName = nameMap[langKey] || nameMap.en;
-                  return (
-                    <option key={item.documentType} value={item.documentType}>
-                      {localizedName}
-                    </option>
-                  );
-                })}
+                {commonDocuments.map((item) => (
+                  <option key={item.documentType} value={item.documentType}>
+                    {item.name[langKey]}
+                  </option>
+                ))}
               </select>
             </div>
 
@@ -279,10 +195,19 @@ export function DocumentsPage() {
             <div className="flex flex-wrap gap-2 pt-1">
               <button
                 type="submit"
+                disabled={uploading}
                 data-tour="upload-button"
-                className="inline-flex min-h-12 items-center gap-2 rounded-xl bg-sahaya-green px-4 font-semibold text-white shadow-sm hover:opacity-90 transition"
+                className="inline-flex min-h-12 items-center gap-2 rounded-xl bg-sahaya-green px-4 font-semibold text-white shadow-sm hover:opacity-90 transition disabled:opacity-50"
               >
-                <UploadCloud size={18} /> {t(language, "uploadDocument")}
+                {uploading ? (
+                  <>
+                    <DotmHex4 size={20} dotSize={3} color="#FFFFFF" /> Processing...
+                  </>
+                ) : (
+                  <>
+                    <UploadCloud size={18} /> {t(language, "uploadDocument")}
+                  </>
+                )}
               </button>
               <button type="button" onClick={() => load()} className="inline-flex min-h-12 items-center gap-2 rounded-xl border px-4 font-semibold hover:bg-stone-50 transition">
                 <RefreshCcw size={18} /> {t(language, "refreshDocuments")}
@@ -291,6 +216,13 @@ export function DocumentsPage() {
           </form>
         </div>
       </section>
+
+      {uploading && (
+        <DotMatrixLoaderModal
+          title="Processing Document Securely..."
+          subtitle="Extracting masked metadata in memory — raw credentials are never retained"
+        />
+      )}
 
       {message && <div className="rounded-xl bg-emerald-50 p-3 text-sm text-emerald-800">{message}</div>}
       {error && <div className="rounded-xl bg-red-50 p-3 text-sm text-red-700">{error}</div>}

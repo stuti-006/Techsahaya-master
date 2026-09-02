@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { SectionCard } from "../components/SectionCard";
+import { SaveToggle } from "../components/ui/SaveToggle";
 import { useAppContext } from "../context/AppContext";
 import { api } from "../services/api";
 import { t } from "../utils/i18n";
@@ -35,13 +36,15 @@ export function SchemeDetailsPage() {
         {data.conflicts && data.conflicts.length > 0 && (
           <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">{data.conflicts[0]}</div>
         )}
-        <div className="mt-4 flex flex-wrap gap-3">
+        <div className="mt-4 flex flex-wrap items-center gap-3">
           <Link to="/eligibility" className="inline-flex min-h-12 items-center rounded-xl bg-sahaya-green px-4 font-semibold text-white">
             {t(language, "checkMyEligibility")}
           </Link>
-          <button onClick={() => api.post("/api/schemes/save", { scheme_id: scheme.id })} className="inline-flex min-h-12 items-center rounded-xl border px-4 font-semibold">
-            {t(language, "saveScheme")}
-          </button>
+          <SaveToggle
+            idleText={t(language, "saveScheme")}
+            savedText={t(language, "saved")}
+            onSave={() => api.post("/api/schemes/save", { scheme_id: scheme.id })}
+          />
           <a href={String(scheme.official_link)} target="_blank" className="inline-flex min-h-12 items-center rounded-xl border px-4 font-semibold" rel="noreferrer">
             {t(language, "officialSource")} →
           </a>

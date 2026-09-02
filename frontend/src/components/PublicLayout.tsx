@@ -5,6 +5,7 @@ import { useAppContext } from "../context/AppContext";
 import { Footer } from "./Footer";
 import { TechSahayaLogo } from "./TechSahayaLogo";
 import { t, type TranslationKey } from "../utils/i18n";
+import { SUPPORTED_LANGUAGES } from "../utils/languages";
 
 const navItems: { to: string; labelKey: TranslationKey }[] = [
   { to: "/home", labelKey: "home" },
@@ -50,16 +51,26 @@ export function PublicLayout({ children }: { children: React.ReactNode }) {
           {/* Actions & Language Selector */}
           <div className="flex items-center gap-1.5 sm:gap-3">
             {/* Language Selector */}
-            <div className="relative flex items-center">
+            <div className="relative flex items-center gap-1 sm:gap-1.5">
+              <Link
+                to="/language"
+                title="Open Interactive Language Screen"
+                className="flex h-9 w-9 sm:h-10 sm:w-10 items-center justify-center rounded-xl border border-slate-200 bg-white text-[#1A3D2E] hover:bg-stone-50 transition shadow-xs"
+                aria-label="Language selection screen"
+              >
+                <Globe size={16} />
+              </Link>
               <select
                 aria-label={t(language, "chooseLanguage")}
-                className="h-9 sm:h-10 rounded-xl border border-slate-200 bg-white pl-2.5 pr-6 text-xs font-semibold text-slate-700 shadow-xs focus:border-[#1A3D2E] focus:outline-none"
+                className="h-9 sm:h-10 rounded-xl border border-slate-200 bg-white pl-2 pr-4 text-xs font-semibold text-slate-700 shadow-xs focus:border-[#1A3D2E] focus:outline-none"
                 value={language}
                 onChange={(e) => setLanguage(e.target.value)}
               >
-                <option value="en">EN</option>
-                <option value="hi">हिं (Hindi)</option>
-                <option value="kn">ಕನ್ (Kannada)</option>
+                {SUPPORTED_LANGUAGES.map((lang) => (
+                  <option key={lang.code} value={lang.code}>
+                    {lang.nativeLabel} ({lang.code.toUpperCase()})
+                  </option>
+                ))}
               </select>
             </div>
 

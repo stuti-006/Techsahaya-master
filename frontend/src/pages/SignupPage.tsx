@@ -2,15 +2,14 @@ import { Eye, EyeOff } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAppContext } from "../context/AppContext";
-import { SUPPORTED_LANGUAGES } from "../utils/languages";
 
 export function SignupPage() {
-  const { signup } = useAppContext();
+  const { signup, language } = useAppContext();
   const navigate = useNavigate();
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const [error, setError] = useState("");
-  const [form, setForm] = useState({ full_name: "", email: "", password: "", confirm: "", preferred_language: "en", phone_number: "", consent_given: false });
+  const [form, setForm] = useState({ full_name: "", email: "", password: "", confirm: "", preferred_language: language || "en", phone_number: "", consent_given: false });
   const strength = useMemo(() => {
     let score = 0;
     if (form.password.length >= 8) score++;
@@ -42,19 +41,17 @@ export function SignupPage() {
             <input className="min-h-12 w-full rounded-xl border px-4 pr-12" placeholder="Confirm Password" type={showConfirm ? "text" : "password"} value={form.confirm} onChange={(e) => setForm({ ...form, confirm: e.target.value })} />
             <button type="button" className="absolute right-3 top-3" onClick={() => setShowConfirm((s) => !s)}>{showConfirm ? <EyeOff size={18} /> : <Eye size={18} />}</button>
           </div>
-          <select className="min-h-12 rounded-xl border px-4" value={form.preferred_language} onChange={(e) => setForm({ ...form, preferred_language: e.target.value })}>
-            {SUPPORTED_LANGUAGES.map((lang) => (
-              <option key={lang.code} value={lang.code}>
-                {lang.nativeLabel} ({lang.label})
-              </option>
-            ))}
-          </select>
           <input className="min-h-12 rounded-xl border px-4 md:col-span-2" placeholder="Optional phone number" value={form.phone_number} onChange={(e) => setForm({ ...form, phone_number: e.target.value })} />
           <div className="text-sm text-slate-600 md:col-span-2">Password strength: <span className="font-semibold">{strength}</span></div>
           <label className="flex items-center gap-2 text-sm md:col-span-2"><input type="checkbox" checked={form.consent_given} onChange={(e) => setForm({ ...form, consent_given: e.target.checked })} /> I agree to the privacy-first terms and consent notice.</label>
           {error && <div className="rounded-xl bg-red-50 p-3 text-sm text-red-700 md:col-span-2">{error}</div>}
           <button className="min-h-12 rounded-xl bg-sahaya-green text-white md:col-span-2">Sign Up</button>
-          <Link to="/login" className="text-sm text-sahaya-green md:col-span-2">Already have an account? Login</Link>
+          <div className="text-sm text-slate-600 md:col-span-2">
+            Already have an account?{" "}
+            <Link to="/login" className="font-semibold text-sahaya-green underline underline-offset-2">
+              Login
+            </Link>
+          </div>
         </form>
       </div>
     </div>
