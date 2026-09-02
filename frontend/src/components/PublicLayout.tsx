@@ -1,55 +1,149 @@
-import { HandHelping, LockKeyhole, ShieldCheck } from "lucide-react";
+import { useState } from "react";
 import { Link, NavLink } from "react-router-dom";
+import { Menu, X, Globe, LogIn, ArrowRight } from "lucide-react";
 import { useAppContext } from "../context/AppContext";
+import { Footer } from "./Footer";
+import { TechSahayaLogo } from "./TechSahayaLogo";
 import { t, type TranslationKey } from "../utils/i18n";
-import { SUPPORTED_LANGUAGES } from "../utils/languages";
 
-const items: { to: string; labelKey: TranslationKey }[] = [
-  { to: "/", labelKey: "home" },
+const navItems: { to: string; labelKey: TranslationKey }[] = [
+  { to: "/home", labelKey: "home" },
   { to: "/how-it-works", labelKey: "howItWorks" },
   { to: "/schemes", labelKey: "schemes" },
   { to: "/security", labelKey: "securityPrivacy" },
-  { to: "/about", labelKey: "about" }
+  { to: "/about", labelKey: "about" },
 ];
 
 export function PublicLayout({ children }: { children: React.ReactNode }) {
   const { language, setLanguage, offline } = useAppContext();
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
   return (
-    <div className="min-h-screen bg-stone-50">
-      <header className="border-b bg-white">
-        <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-4">
-          <Link to="/" className="flex items-center gap-3 text-sahaya-green">
-            <div className="rounded-xl bg-sahaya-green p-2 text-white"><HandHelping size={20} /></div>
-            <div>
-              <div className="font-bold">Tech Sahaya</div>
-              <div className="text-xs text-slate-500">{t(language, "publicTagline")}</div>
-            </div>
+    <div className="min-h-screen bg-[#FAF7F0] flex flex-col justify-between overflow-x-hidden">
+      {/* Header */}
+      <header className="border-b border-[#1A3D2E]/10 bg-white/95 backdrop-blur-sm sticky top-0 z-40">
+        <div className="mx-auto flex max-w-7xl items-center justify-between gap-2 px-3.5 py-2.5 sm:px-6 sm:py-3.5">
+          {/* Brand Logo */}
+          <Link to="/home" className="flex items-center shrink-0">
+            <TechSahayaLogo size={32} glowing={true} />
           </Link>
-          <nav className="hidden items-center gap-4 md:flex">
-            {items.map((item) => <NavLink key={item.to} to={item.to} className="text-sm text-slate-700">{t(language, item.labelKey)}</NavLink>)}
+
+          {/* Desktop Navigation */}
+          <nav className="hidden items-center gap-5 lg:flex xl:gap-7">
+            {navItems.map((item) => (
+              <NavLink
+                key={item.to}
+                to={item.to}
+                className={({ isActive }) =>
+                  `text-xs font-bold uppercase tracking-widest transition-colors ${
+                    isActive
+                      ? "text-[#1A3D2E] underline underline-offset-8 decoration-2 decoration-[#1A3D2E]"
+                      : "text-slate-600 hover:text-[#1A3D2E]"
+                  }`
+                }
+              >
+                {t(language, item.labelKey)}
+              </NavLink>
+            ))}
           </nav>
-          <div className="flex items-center gap-3">
-            <select aria-label="Language selector" className="min-h-12 rounded-xl border px-3" value={language} onChange={(e) => setLanguage(e.target.value)}>
-              {SUPPORTED_LANGUAGES.map((lang) => (
-                <option key={lang.code} value={lang.code}>
-                  {lang.nativeLabel} ({lang.label})
-                </option>
-              ))}
-            </select>
-            <Link to="/login" className="hidden min-h-12 items-center rounded-xl border px-4 md:inline-flex">{t(language, "login")}</Link>
-            <Link to="/signup" className="inline-flex min-h-12 items-center rounded-xl bg-sahaya-green px-4 text-white">{t(language, "getStarted")}</Link>
+
+          {/* Actions & Language Selector */}
+          <div className="flex items-center gap-1.5 sm:gap-3">
+            {/* Language Selector */}
+            <div className="relative flex items-center">
+              <select
+                aria-label={t(language, "chooseLanguage")}
+                className="h-9 sm:h-10 rounded-xl border border-slate-200 bg-white pl-2.5 pr-6 text-xs font-semibold text-slate-700 shadow-xs focus:border-[#1A3D2E] focus:outline-none"
+                value={language}
+                onChange={(e) => setLanguage(e.target.value)}
+              >
+                <option value="en">EN</option>
+                <option value="hi">हिं (Hindi)</option>
+                <option value="kn">ಕನ್ (Kannada)</option>
+              </select>
+            </div>
+
+            {/* Desktop Auth Links */}
+            <Link
+              to="/login"
+              className="hidden h-10 items-center rounded-xl border border-[#1A3D2E] px-3.5 text-xs font-bold uppercase tracking-wider text-[#1A3D2E] hover:bg-[#1A3D2E] hover:text-white transition sm:inline-flex"
+            >
+              {t(language, "login")}
+            </Link>
+            <Link
+              to="/signup"
+              className="hidden h-10 items-center rounded-xl bg-[#1A3D2E] px-4 text-xs font-bold uppercase tracking-wider text-white shadow-sm hover:bg-[#1A3D2E]/90 transition sm:inline-flex"
+            >
+              {t(language, "getStarted")}
+            </Link>
+
+            {/* Mobile Menu Toggle Button */}
+            <button
+              type="button"
+              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+              className="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 bg-white text-[#1A3D2E] shadow-xs lg:hidden focus:outline-none"
+              aria-label="Toggle navigation menu"
+            >
+              {mobileMenuOpen ? <X size={20} /> : <Menu size={20} />}
+            </button>
           </div>
         </div>
-        {offline && <div className="bg-amber-100 px-4 py-2 text-center text-sm text-amber-900">You are offline. Cached scheme information is still available.</div>}
+
+        {/* Offline Banner */}
+        {offline && (
+          <div className="bg-amber-100 px-3 py-1.5 text-center text-xs font-medium text-amber-900 border-b border-amber-200">
+            {t(language, "offlineChat")}
+          </div>
+        )}
+
+        {/* Mobile Slide-down Navigation Drawer */}
+        {mobileMenuOpen && (
+          <div className="border-b border-[#1A3D2E]/10 bg-white px-5 py-4 lg:hidden shadow-lg animate-in slide-in-from-top-2 duration-200">
+            <nav className="flex flex-col space-y-3">
+              {navItems.map((item) => (
+                <NavLink
+                  key={item.to}
+                  to={item.to}
+                  onClick={() => setMobileMenuOpen(false)}
+                  className={({ isActive }) =>
+                    `flex items-center justify-between rounded-xl px-3 py-2.5 text-sm font-semibold transition-colors ${
+                      isActive
+                        ? "bg-[#1A3D2E]/10 text-[#1A3D2E] font-bold"
+                        : "text-slate-700 hover:bg-stone-50"
+                    }`
+                  }
+                >
+                  <span>{t(language, item.labelKey)}</span>
+                  <ArrowRight size={14} className="opacity-40" />
+                </NavLink>
+              ))}
+
+              <div className="pt-2 border-t border-slate-100 flex flex-col gap-2">
+                <Link
+                  to="/login"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="flex h-11 items-center justify-center gap-2 rounded-xl border border-[#1A3D2E] text-xs font-bold uppercase tracking-wider text-[#1A3D2E]"
+                >
+                  <LogIn size={15} /> {t(language, "login")}
+                </Link>
+                <Link
+                  to="/signup"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="flex h-11 items-center justify-center gap-2 rounded-xl bg-[#1A3D2E] text-xs font-bold uppercase tracking-wider text-white shadow-sm"
+                >
+                  {t(language, "getStarted")}
+                </Link>
+              </div>
+            </nav>
+          </div>
+        )}
       </header>
-      <main>{children}</main>
-      <footer className="border-t bg-white">
-        <div className="mx-auto grid max-w-7xl gap-4 px-4 py-8 md:grid-cols-3">
-          <div><div className="font-semibold">Tech Sahaya</div><p className="mt-2 text-sm text-slate-600">Discover, understand, verify, prepare, apply, and track welfare benefits with explainable assistance.</p></div>
-          <div><div className="font-semibold">Trust</div><div className="mt-2 flex items-center gap-2 text-sm text-slate-600"><ShieldCheck size={16} /> Privacy-by-design</div><div className="mt-2 flex items-center gap-2 text-sm text-slate-600"><LockKeyhole size={16} /> Role-based access control</div></div>
-          <div><div className="font-semibold">Responsible guidance</div><p className="mt-2 text-sm text-slate-600">Designed to align with DPDP Act principles. Always verify final eligibility on the official portal.</p></div>
-        </div>
-      </footer>
+
+      {/* Page Content */}
+      <main className="flex-1">{children}</main>
+
+      {/* Rich Brand Footer */}
+      <Footer />
     </div>
   );
 }

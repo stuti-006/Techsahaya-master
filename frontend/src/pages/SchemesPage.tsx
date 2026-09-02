@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { SchemeCard } from "../components/SchemeCard";
+import { ContinuousPagination } from "../components/ui/ContinuousPagination";
 import { useAppContext } from "../context/AppContext";
 import { t, type TranslationKey } from "../utils/i18n";
 import { categoryTranslations, getLocalizedScheme } from "../utils/schemeLocalization";
@@ -19,13 +20,17 @@ export function SchemesPage() {
   const [category, setCategory] = useState("");
   const [state, setState] = useState("");
   const [audienceKey, setAudienceKey] = useState<TranslationKey | "">("");
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(6);
+  const [sortBy, setSortBy] = useState<"featured" | "name_asc" | "name_desc" | "verified_desc" | "category">("featured");
 
   const categories = useMemo(() => Array.from(new Set(schemes.map((scheme) => scheme.category))).sort(), [schemes]);
   const states = useMemo(() => Array.from(new Set(schemes.flatMap((scheme) => scheme.state_scope))).sort(), [schemes]);
 
   const filtered = useMemo(() => {
+    setPage(1);
     const audienceTerms = audienceFilters.find((item) => item.labelKey === audienceKey)?.terms || [];
-    return schemes.filter((scheme) => {
+    const list = schemes.filter((scheme) => {
       const locScheme = getLocalizedScheme(scheme, language);
       const searchable = [
         locScheme.name,
@@ -45,7 +50,18 @@ export function SchemesPage() {
         (!audienceTerms.length || audienceTerms.some((term) => searchable.includes(term)))
       );
     });
-  }, [schemes, q, category, state, audienceKey, language]);
+
+    // Sorting
+    return list.sort((a, b) => {
+      const locA = getLocalizedScheme(a, language);
+      const locB = getLocalizedScheme(b, language);
+      if (sortBy === "name_asc") return locA.name.localeCompare(locB.name);
+      if (sortBy === "name_desc") return locB.name.localeCompare(locA.name);
+      if (sortBy === "verified_desc") return String(b.last_verified || "").localeCompare(String(a.last_verified || ""));
+      if (sortBy === "category") return locA.category.localeCompare(locB.category);
+      return 0;
+    });
+  }, [schemes, q, category, state, audienceKey, language, sortBy]);
 
   return (
     <div className="space-y-5">
@@ -122,12 +138,68 @@ export function SchemesPage() {
         </div>
       </div>
 
-      {filtered.length > 0 ? (
-        <div className="grid gap-4 lg:grid-cols-2">
-          {filtered.map((scheme) => (
-            <SchemeCard key={scheme.id} scheme={scheme} />
-          ))}
+      {/* Sorting & Items Per Page Controls (as in inspiration design) */}
+      <div className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-slate-200 bg-white px-5 py-3 shadow-xs">
+        <div className="text-xs font-bold uppercase tracking-wider text-slate-500">
+          Showing <span className="text-[#1A3D2E] font-extrabold">{Math.min(filtered.length, (page - 1) * pageSize + 1)}–{Math.min(filtered.length, page * pageSize)}</span> of <span className="text-[#1A3D2E] font-extrabold">{filtered.length}</span> schemes
         </div>
+
+        <div className="flex flex-wrap items-center gap-6">
+          {/* ITEMS PER PAGE */}
+          <div className="flex items-center gap-2.5">
+            <span className="text-xs font-bold uppercase tracking-widest text-slate-800">
+              ITEMS PER PAGE
+            </span>
+            <select
+              aria-label="Items per page"
+              className="h-10 rounded-lg border border-slate-300 bg-white px-3 text-xs font-bold text-slate-800 shadow-xs focus:border-[#1A3D2E] focus:outline-none"
+              value={pageSize}
+              onChange={(e) => {
+                setPageSize(Number(e.target.value));
+                setPage(1);
+              }}
+            >
+              <option value={6}>6</option>
+              <option value={12}>12</option>
+              <option value={20}>20</option>
+              <option value={50}>50</option>
+            </select>
+          </div>
+
+          {/* SORT BY */}
+          <div className="flex items-center gap-2.5">
+            <span className="text-xs font-bold uppercase tracking-widest text-slate-800">
+              SORT BY
+            </span>
+            <select
+              aria-label="Sort schemes by"
+              className="h-10 rounded-lg border border-slate-300 bg-white px-3 text-xs font-bold text-slate-800 shadow-xs focus:border-[#1A3D2E] focus:outline-none"
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value as any)}
+            >
+              <option value="featured">Featured</option>
+              <option value="name_asc">Name (A–Z)</option>
+              <option value="name_desc">Name (Z–A)</option>
+              <option value="verified_desc">Recently Verified</option>
+              <option value="category">Category</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      {filtered.length > 0 ? (
+        <>
+          <div className="grid gap-4 lg:grid-cols-2">
+            {filtered.slice((page - 1) * pageSize, page * pageSize).map((scheme) => (
+              <SchemeCard key={scheme.id} scheme={scheme} />
+            ))}
+          </div>
+          <ContinuousPagination
+            totalPages={Math.ceil(filtered.length / pageSize)}
+            currentPage={page}
+            onPageChange={(p) => { setPage(p); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+          />
+        </>
       ) : (
         <div className="rounded-3xl border border-dashed bg-white p-8 text-center shadow-card">
           <h2 className="text-xl font-semibold">{t(language, "noSchemes")}</h2>

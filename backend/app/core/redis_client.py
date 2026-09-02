@@ -2,7 +2,10 @@ import json
 import logging
 import time
 from typing import Any, Optional
-import redis
+try:
+    import redis
+except ImportError:
+    redis = None
 
 from app.core.config import get_settings
 

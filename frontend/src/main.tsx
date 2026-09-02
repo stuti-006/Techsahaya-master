@@ -7,7 +7,16 @@ import "./index.css";
 import { AppProvider } from "./context/AppContext";
 import { TourProvider } from "./context/TourContext";
 
-registerSW({ immediate: true });
+if (import.meta.env.PROD) {
+  registerSW({ immediate: true });
+} else if ("serviceWorker" in navigator) {
+  // Ensure development environment is not blocked by stale service worker caches
+  navigator.serviceWorker.getRegistrations().then((registrations) => {
+    for (const registration of registrations) {
+      registration.unregister();
+    }
+  });
+}
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>

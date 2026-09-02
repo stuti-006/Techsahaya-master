@@ -3,9 +3,9 @@ import { useState } from "react";
 import { Link, NavLink } from "react-router-dom";
 import { useAppContext } from "../context/AppContext";
 import { t, type TranslationKey } from "../utils/i18n";
-import { SUPPORTED_LANGUAGES } from "../utils/languages";
 import { FloatingChatWidget } from "./FloatingChatWidget";
 import { SpotlightOverlay } from "./SpotlightOverlay";
+import { TechSahayaLogo } from "./TechSahayaLogo";
 
 type NavItem = {
   to: string;
@@ -96,20 +96,14 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
       <header className="sticky top-0 z-20 border-b bg-white/95 backdrop-blur">
         <div className="mx-auto flex max-w-7xl items-center justify-between gap-3 px-4 py-3">
-          <Link to="/dashboard" className="flex items-center gap-3 text-sahaya-green">
-            <div className="rounded-xl bg-sahaya-green p-2 text-white"><HandHelping size={20} /></div>
-            <div>
-              <div className="font-bold">Tech Sahaya</div>
-              <div className="text-xs text-slate-500">{user?.role === "admin" ? t(language, "administration") : user?.role === "csc_operator" ? t(language, "cscAssistance") : t(language, "citizenPlatform")}</div>
-            </div>
+          <Link to="/dashboard" className="flex items-center">
+            <TechSahayaLogo size={32} glowing={true} />
           </Link>
           <div className="flex items-center gap-2 md:gap-3">
             <select aria-label={t(language, "chooseLanguage")} className="min-h-12 rounded-xl border px-3 text-sm" value={language} onChange={(e) => setLanguage(e.target.value)}>
-              {SUPPORTED_LANGUAGES.map((lang) => (
-                <option key={lang.code} value={lang.code}>
-                  {lang.nativeLabel} ({lang.label})
-                </option>
-              ))}
+              <option value="en">English</option>
+              <option value="hi">Hindi</option>
+              <option value="kn">Kannada</option>
             </select>
             <Link to="/notifications" aria-label={t(language, "openNotifications")} className="relative hidden min-h-12 items-center rounded-xl border px-3 text-sm sm:inline-flex">
               <Bell size={16} />

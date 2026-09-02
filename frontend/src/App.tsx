@@ -1,7 +1,9 @@
-import { Route, Routes } from "react-router-dom";
+import { Navigate, Route, Routes } from "react-router-dom";
 import { AppShell } from "./components/AppShell";
 import { ProtectedRoute, RoleProtectedRoute } from "./components/ProtectedRoute";
 import { PublicLayout } from "./components/PublicLayout";
+import { ScrollToTop } from "./components/ScrollToTop";
+import { ScrollToTopButton } from "./components/ScrollToTopButton";
 import { AboutPage } from "./pages/AboutPage";
 import { AccessRestrictedPage } from "./pages/AccessRestrictedPage";
 import { AdminAuditPage } from "./pages/AdminAuditPage";
@@ -21,6 +23,7 @@ import { ForgotPasswordPage } from "./pages/ForgotPasswordPage";
 import { HomePage } from "./pages/HomePage";
 import { HowItWorksPage } from "./pages/HowItWorksPage";
 import { JourneyPage } from "./pages/JourneyPage";
+import { LanguagePickerPage } from "./pages/LanguagePickerPage";
 import { LoginPage } from "./pages/LoginPage";
 import { PrivacyPage } from "./pages/PrivacyPage";
 import { ProfilePage } from "./pages/ProfilePage";
@@ -33,11 +36,23 @@ import { SignupPage } from "./pages/SignupPage";
 import { WelfareGapsPage } from "./pages/WelfareGapsPage";
 import { WhatIfPage } from "./pages/WhatIfPage";
 import { ConsentPage } from "./pages/ConsentPage";
+import { NotFoundPage } from "./pages/NotFoundPage";
 
 export default function App() {
   return (
-    <Routes>
-      <Route path="/" element={<PublicLayout><HomePage /></PublicLayout>} />
+    <>
+      <ScrollToTop />
+      <Routes>
+      {/* Language picker on very first visit; returning users go straight to /login */}
+      <Route
+        path="/"
+        element={
+          localStorage.getItem("ts_lang_chosen")
+            ? <Navigate to="/login" replace />
+            : <LanguagePickerPage />
+        }
+      />
+      <Route path="/home" element={<PublicLayout><HomePage /></PublicLayout>} />
       <Route path="/how-it-works" element={<PublicLayout><HowItWorksPage /></PublicLayout>} />
       <Route path="/schemes" element={<PublicLayout><SchemesPage /></PublicLayout>} />
       <Route path="/schemes/:schemeId" element={<PublicLayout><SchemeDetailsPage /></PublicLayout>} />
@@ -72,6 +87,12 @@ export default function App() {
       <Route path="/admin/sources" element={<RoleProtectedRoute roles={["admin"]}><AppShell><AdminSourcesPage /></AppShell></RoleProtectedRoute>} />
       <Route path="/admin/users" element={<RoleProtectedRoute roles={["admin"]}><AppShell><AdminUsersPage /></AppShell></RoleProtectedRoute>} />
       <Route path="/admin/audit" element={<RoleProtectedRoute roles={["admin"]}><AppShell><AdminAuditPage /></AppShell></RoleProtectedRoute>} />
+
+      {/* 404 Brand Page */}
+      <Route path="/404" element={<NotFoundPage />} />
+      <Route path="*" element={<NotFoundPage />} />
     </Routes>
+    <ScrollToTopButton />
+  </>
   );
 }
