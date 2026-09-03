@@ -60,9 +60,49 @@ def test_scheme_details_is_public():
     assert response.json()["scheme"]["id"] == "pm-kisan"
 
 
-def test_protected_chat_requires_auth():
+def test_guest_chat_and_protected_endpoints():
+    # Chat is accessible to guest users on landing page
     response = client.post("/api/chat", json={"message": "farmer schemes", "language": "en"})
-    assert response.status_code == 401
+    assert response.status_code == 200
+    assert "answer" in response.json()
+
+    # Documents endpoint strictly requires authentication
+    doc_res = client.get("/api/documents")
+    assert doc_res.status_code == 401
+
+
+def test_email_otp_two_step_verification():
+    email = "test_otp_user@techsahaya.org"
+    # 1. Signup triggers OTP
+    signup_res = client.post(
+        "/api/auth/signup",
+        json={
+            "full_name": "OTP Test User",
+            "email": email,
+            "password": "Password@123",
+            "preferred_language": "en",
+            "consent_given": True,
+        },
+    )
+    assert signup_res.status_code == 200
+    data = signup_res.json()
+    assert data["requires_otp"] is True
+    dev_otp = data.get("dev_otp")
+    assert dev_otp is not None
+
+    # 2. Verify OTP logs user in and issues session token
+    verify_res = client.post(
+        "/api/auth/verify-otp",
+        json={
+            "email": email,
+            "otp_code": dev_otp,
+            "purpose": "signup_2fa",
+        },
+    )
+    assert verify_res.status_code == 200
+    auth_data = verify_res.json()
+    assert "token" in auth_data
+    assert auth_data["user"]["email"] == email
 
 
 def test_eligibility():

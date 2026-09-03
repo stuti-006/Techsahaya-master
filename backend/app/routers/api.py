@@ -26,7 +26,9 @@ from app.models.schemas import (
     LoginRequest,
     ProfileUpdate,
     SaveSchemeRequest,
+    SendOTPRequest,
     SignUpRequest,
+    VerifyOTPRequest,
     VoiceChatRequest,
     VoiceChatResponse,
     WhatIfRequest,
@@ -68,6 +70,23 @@ def _profile_from_current(db: Session, user: User):
 @router.post("/auth/signup")
 def signup(payload: SignUpRequest, request: Request, db: Session = Depends(get_db)):
     return auth_service.signup(db, payload, request)
+
+
+@router.post("/auth/send-otp")
+def send_otp(payload: SendOTPRequest, request: Request, db: Session = Depends(get_db)):
+    return auth_service.send_otp(db, payload.email, payload.purpose, request)
+
+
+@router.post("/auth/verify-otp")
+def verify_otp(payload: VerifyOTPRequest, request: Request, db: Session = Depends(get_db)):
+    return auth_service.verify_otp(
+        db,
+        payload.email,
+        payload.otp_code,
+        payload.purpose,
+        request,
+        payload.remember_session,
+    )
 
 
 @router.post("/auth/login")

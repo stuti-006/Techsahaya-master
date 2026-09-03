@@ -177,6 +177,25 @@ class LoginRequest(BaseModel):
     remember_session: bool = False
 
 
+class SendOTPRequest(BaseModel):
+    email: EmailStr
+    purpose: str = "signup_2fa"
+
+
+class VerifyOTPRequest(BaseModel):
+    email: EmailStr
+    otp_code: str = Field(min_length=4, max_length=10)
+    purpose: str = "signup_2fa"
+    remember_session: bool = False
+
+
+class SignUpResponse(BaseModel):
+    requires_otp: bool = True
+    email: str
+    message: str
+    dev_otp: str | None = None
+
+
 class ForgotPasswordRequest(BaseModel):
     email: EmailStr
 

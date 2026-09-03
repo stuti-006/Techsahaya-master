@@ -228,3 +228,15 @@ class SchemeDocumentRecord(Base):
     document_name: Mapped[str] = mapped_column(String(255))
     required: Mapped[bool] = mapped_column(Boolean, default=True)
     purpose: Mapped[str] = mapped_column(String(255), default="")
+
+
+class EmailOTPRecord(Base):
+    __tablename__ = "email_otps"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    email: Mapped[str] = mapped_column(String(255), index=True)
+    otp_code: Mapped[str] = mapped_column(String(10))
+    purpose: Mapped[str] = mapped_column(String(50), default="signup_2fa")
+    expires_at: Mapped[datetime] = mapped_column(DateTime)
+    is_used: Mapped[bool] = mapped_column(Boolean, default=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)

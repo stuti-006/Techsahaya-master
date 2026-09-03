@@ -16,9 +16,12 @@ type AppContextValue = {
   user: User | null;
   notifications: NotificationItem[];
   login: (payload: { email: string; password: string; remember_session: boolean }) => Promise<string | null>;
-  signup: (payload: Record<string, unknown>) => Promise<string | null>;
+  signup: (payload: Record<string, unknown>) => Promise<{ requires_otp: boolean; email: string; dev_otp?: string; message?: string } | string>;
+  sendOtp: (email: string, purpose?: string) => Promise<{ status: string; email: string; dev_otp?: string; message?: string } | string>;
+  verifyOtp: (payload: { email: string; otp_code: string; purpose?: string; remember_session?: boolean }) => Promise<string | null>;
   logout: () => Promise<void>;
   refreshSession: () => Promise<void>;
+  refreshProfile: () => Promise<void>;
 };
 
 const AppContext = createContext<AppContextValue | null>(null);
@@ -131,10 +134,32 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const signup = async (payload: Record<string, unknown>) => {
     try {
-      await api.post("/api/auth/signup", payload);
-      return null;
+      const response = await api.post("/api/auth/signup", payload);
+      return response.data;
     } catch (error: any) {
       return error?.response?.data?.detail || "Signup failed";
+    }
+  };
+
+  const sendOtp = async (email: string, purpose = "signup_2fa") => {
+    try {
+      const response = await api.post("/api/auth/send-otp", { email, purpose });
+      return response.data;
+    } catch (error: any) {
+      return error?.response?.data?.detail || "Failed to send verification code";
+    }
+  };
+
+  const verifyOtp = async (payload: { email: string; otp_code: string; purpose?: string; remember_session?: boolean }) => {
+    try {
+      const response = await api.post("/api/auth/verify-otp", payload);
+      persistToken(response.data.token, payload.remember_session ?? false);
+      setUser(response.data.user);
+      setLanguage(response.data.user.preferred_language || language);
+      await Promise.all([refreshNotifications(), refreshProfile()]);
+      return null;
+    } catch (error: any) {
+      return error?.response?.data?.detail || "Verification failed";
     }
   };
 
@@ -158,7 +183,29 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <AppContext.Provider value={{ schemes, profile, setProfile, language, setLanguage, offline, refreshSchemes, personas, loadPersona, token, user, notifications, login, signup, logout, refreshSession }}>
+    <AppContext.Provider
+      value={{
+        schemes,
+        profile,
+        setProfile,
+        language,
+        setLanguage,
+        offline,
+        refreshSchemes,
+        personas,
+        loadPersona,
+        token,
+        user,
+        notifications,
+        login,
+        signup,
+        sendOtp,
+        verifyOtp,
+        logout,
+        refreshSession,
+        refreshProfile,
+      }}
+    >
       {children}
     </AppContext.Provider>
   );

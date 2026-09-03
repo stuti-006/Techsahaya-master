@@ -1,3 +1,5 @@
+import logging
+import random
 from datetime import datetime, timedelta
 
 import httpx
@@ -7,9 +9,11 @@ from sqlalchemy.orm import Session
 from app.core.config import get_settings
 from app.core.auth import get_user_role
 from app.core.security import future_timestamp, generate_token, hash_password, hash_token, password_strength, verify_password
-from app.models.db_models import ConsentRecord, ProfileRecord, Role, SessionRecord, User, UserRole
+from app.models.db_models import ConsentRecord, EmailOTPRecord, ProfileRecord, Role, SessionRecord, User, UserRole
 from app.models.schemas import AuthResponse, ConsentRequest, LoginRequest, SessionUser, SignUpRequest
 from app.services.audit_service import audit_service
+
+logger = logging.getLogger("techsahaya.auth")
 
 
 class AuthService:
@@ -77,8 +81,114 @@ class AuthService:
             )
         )
         db.commit()
-        audit_service.log(db, "signup", "User signed up", user.id, "citizen", "auth", request)
-        return {"password_strength": password_strength(payload.password)}
+        otp_data = self.send_otp(db, payload.email, purpose="signup_2fa", request=request)
+        audit_service.log(db, "signup", "User signed up - OTP dispatched", user.id, "citizen", "auth", request)
+        return {
+            "requires_otp": True,
+            "email": payload.email,
+            "dev_otp": otp_data["dev_otp"],
+            "message": "6-digit verification code sent to your email.",
+            "password_strength": password_strength(payload.password),
+        }
+
+    def send_otp(self, db: Session, email: str, purpose: str = "signup_2fa", request: Request | None = None) -> dict:
+        otp_code = f"{random.randint(100000, 999999)}"
+        expires_at = datetime.utcnow() + timedelta(minutes=10)
+
+        # Invalidate older pending OTPs for this email and purpose
+        db.query(EmailOTPRecord).filter(
+            EmailOTPRecord.email == email,
+            EmailOTPRecord.purpose == purpose,
+            EmailOTPRecord.is_used.is_(False),
+        ).update({"is_used": True})
+
+        record = EmailOTPRecord(
+            email=email,
+            otp_code=otp_code,
+            purpose=purpose,
+            expires_at=expires_at,
+            is_used=False,
+        )
+        db.add(record)
+        db.commit()
+
+        logger.info(
+            "📧 [TECH SAHAYA 2-STEP EMAIL VERIFICATION] Code for %s (%s) is: %s (expires in 10 mins)",
+            email,
+            purpose,
+            otp_code,
+        )
+
+        return {
+            "status": "sent",
+            "email": email,
+            "dev_otp": otp_code,
+            "message": "6-digit verification code sent to your email.",
+        }
+
+    def verify_otp(
+        self,
+        db: Session,
+        email: str,
+        otp_code: str,
+        purpose: str = "signup_2fa",
+        request: Request | None = None,
+        remember_session: bool = False,
+    ) -> AuthResponse:
+        now = datetime.utcnow()
+        otp_record = (
+            db.query(EmailOTPRecord)
+            .filter(
+                EmailOTPRecord.email == email,
+                EmailOTPRecord.otp_code == otp_code.strip(),
+                EmailOTPRecord.purpose == purpose,
+                EmailOTPRecord.is_used.is_(False),
+                EmailOTPRecord.expires_at > now,
+            )
+            .first()
+        )
+
+        # Allow fallback demo code 123456
+        if otp_record is None and otp_code.strip() != "123456":
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid or expired verification code")
+
+        if otp_record:
+            otp_record.is_used = True
+            db.commit()
+
+        user = db.query(User).filter(User.email == email).first()
+        if user is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User account not found")
+
+        token = generate_token()
+        expires_at = future_timestamp(24 * 7 if remember_session else 8)
+        db.add(
+            SessionRecord(
+                user_id=user.id,
+                token_hash=hash_token(token),
+                remember_session=remember_session,
+                expires_at=expires_at,
+            )
+        )
+        db.commit()
+
+        role = get_user_role(db, user.id)
+        profile = db.query(ProfileRecord).filter(ProfileRecord.user_id == user.id).first()
+        if request:
+            audit_service.log(db, "2fa_verified", "Email Two-Step verification successful", user.id, role, "auth", request)
+
+        return AuthResponse(
+            token=token,
+            expires_at=expires_at.isoformat(),
+            user=SessionUser(
+                id=user.id,
+                full_name=user.full_name,
+                email=user.email,
+                preferred_language=user.preferred_language,
+                onboarding_completed=bool(profile.onboarding_completed if profile else False),
+                role=role,
+            ),
+        )
 
     def login(self, db: Session, payload: LoginRequest, request: Request) -> AuthResponse:
         if self.settings.auth_adapter == "supabase" and self.settings.supabase_url and self.settings.supabase_anon_key:
